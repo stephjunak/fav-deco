@@ -107,11 +107,30 @@ a{color:inherit}
 .btn--danger{color:var(--danger)}
 
 /* ---------- Filtres ---------- */
+.barre{
+  display:flex;gap:10px;align-items:center;
+  padding:0 16px 12px;max-width:1400px;margin:0 auto;
+}
+.seg{
+  display:inline-flex;flex:0 0 auto;background:var(--n-200);
+  border-radius:var(--r-pill);padding:3px;gap:2px;
+}
+.seg button{
+  border:none;background:none;border-radius:var(--r-pill);
+  padding:6px 12px;font-size:13px;color:var(--text-muted);white-space:nowrap;
+  transition:background .15s,color .15s;
+}
+.seg button[aria-pressed="true"]{
+  background:var(--surface);color:var(--text);font-weight:600;
+  box-shadow:0 1px 2px rgba(0,0,0,.09);
+}
 .filtres{
   display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
-  padding:0 16px 12px;max-width:1400px;margin:0 auto;
+  flex:1;min-width:0;
+  padding-left:10px;border-left:1px solid var(--border-strong);
   -webkit-overflow-scrolling:touch;
 }
+.filtres:empty{border-left:none;padding-left:0}
 .filtres::-webkit-scrollbar{display:none}
 .puce{
   flex:0 0 auto;border:1px solid var(--border-strong);background:transparent;
@@ -126,11 +145,21 @@ a{color:inherit}
 .puce .n{opacity:.55;margin-left:5px;font-variant-numeric:tabular-nums}
 
 /* ---------- Grille en colonnes (hauteurs libres) ---------- */
-#contenu{max-width:1400px;margin:0 auto;padding:6px 16px 80px}
+#contenu{max-width:1400px;margin:0 auto;padding:10px 16px 80px}
 
-/* Une section par catégorie, empilées verticalement */
-.section{margin-top:28px}
-.section:first-child{margin-top:12px}
+/* Vue par catégorie : les sections coulent en colonnes, pour que deux
+   petites catégories se retrouvent côte à côte au lieu de prendre
+   chacune une ligne entière. Les vignettes ont un ratio fixe, donc leur
+   hauteur est connue avant le chargement des photos : c'est ce qui rend
+   ce découpage en colonnes fiable ici. */
+#contenu[data-vue="cat"]{columns:2;column-gap:20px}
+@media(min-width:1100px){ #contenu[data-vue="cat"]{columns:3} }
+@media(min-width:1500px){ #contenu[data-vue="cat"]{columns:4} }
+
+.section{
+  break-inside:avoid;-webkit-column-break-inside:avoid;
+  margin:0 0 24px;
+}
 .section-titre{
   display:flex;align-items:baseline;gap:8px;margin:0 0 12px;
   font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
@@ -145,9 +174,14 @@ a{color:inherit}
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:var(--gouttiere);align-items:start;
 }
-@media(min-width:640px){ .grille{grid-template-columns:repeat(3,minmax(0,1fr))} }
-@media(min-width:980px){ :root{--gouttiere:18px} .grille{grid-template-columns:repeat(4,minmax(0,1fr))} }
-@media(min-width:1300px){ .grille{grid-template-columns:repeat(5,minmax(0,1fr))} }
+/* Par catégorie : la section occupe déjà une colonne étroite */
+#contenu[data-vue="cat"] .grille{grid-template-columns:1fr}
+@media(min-width:700px){ #contenu[data-vue="cat"] .grille{grid-template-columns:repeat(2,minmax(0,1fr))} }
+
+/* Tout : une seule grande grille */
+@media(min-width:640px){ #contenu[data-vue="tout"] .grille{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media(min-width:980px){ :root{--gouttiere:18px} #contenu[data-vue="tout"] .grille{grid-template-columns:repeat(4,minmax(0,1fr))} }
+@media(min-width:1300px){ #contenu[data-vue="tout"] .grille{grid-template-columns:repeat(5,minmax(0,1fr))} }
 
 .tuile{
   position:relative;min-width:0;
@@ -190,9 +224,12 @@ a{color:inherit}
   display:flex;align-items:center;gap:6px;margin-top:3px;
   font-size:12px;color:var(--text-subtle);
 }
-.tuile-prix{font-weight:600;color:var(--text-muted);font-variant-numeric:tabular-nums}
-.tuile-sep{opacity:.4}
-.tuile-boutique{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tuile-prix{
+  font-weight:600;color:var(--text-muted);font-variant-numeric:tabular-nums;
+  white-space:nowrap;flex:0 0 auto;      /* « 339 € » ne doit jamais se couper */
+}
+.tuile-sep{opacity:.4;flex:0 0 auto}
+.tuile-boutique{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .tuile-qui{
   margin-left:auto;flex:0 0 auto;width:17px;height:17px;border-radius:50%;
   display:grid;place-items:center;font-size:9.5px;font-weight:600;
@@ -303,6 +340,21 @@ a{color:inherit}
 .actions-feuille .btn{flex:1;justify-content:center;text-align:center;padding:11px}
 
 .aide{font-size:12px;color:var(--text-subtle);line-height:1.5;text-wrap:pretty}
+
+/* Gestion des catégories */
+.cat-ligne{
+  display:flex;align-items:center;gap:6px;padding:7px 4px 7px 10px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;
+}
+.cat-nom{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-nb{font-size:11.5px;color:var(--text-subtle);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.cat-act{
+  flex:0 0 auto;border:none;background:none;padding:5px 7px;border-radius:7px;
+  font-size:13px;color:var(--text-subtle);line-height:1;
+}
+.cat-act:hover{background:var(--n-100);color:var(--text)}
+.cat-act:disabled{opacity:.25;cursor:default}
+.cat-act--danger:hover{background:#F7E4E1;color:var(--danger)}
 .aide code{
   background:var(--n-200);padding:1px 5px;border-radius:4px;font-size:11.5px;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -367,7 +419,13 @@ a{color:inherit}
       <button class="btn btn--primaire" id="btn-ajouter">Ajouter</button>
     </div>
   </div>
-  <div class="filtres" id="filtres"></div>
+  <div class="barre">
+    <div class="seg" id="seg-vue">
+      <button data-vue="cat" aria-pressed="true">Catégories</button>
+      <button data-vue="tout" aria-pressed="false">Tout</button>
+    </div>
+    <div class="filtres" id="filtres"></div>
+  </div>
 </header>
 
 <main id="contenu"></main>
@@ -389,6 +447,8 @@ var SB_KEY = "";   // clé anon (publishable)
 var TABLE  = "favoris";
 var CLE_LOCALE = "favdeco:items";
 var CLE_QUI    = "favdeco:qui";
+var CLE_VUE    = "favdeco:vue";
+var CLE_ORDRE  = "favdeco:ordre";
 
 var partage = !!(SB_URL && SB_KEY);
 var entetes = {
@@ -402,6 +462,7 @@ var entetes = {
    ================================================================= */
 var articles = [];
 var filtre = null;          // null = tout
+var vue = localStorage.getItem("favdeco:vue") === "tout" ? "tout" : "cat";
 var popOuvert = null;
 var CATS_BASE = ["Canapé","Table","Chaise","Luminaire","Rangement","Lit","Déco","Tapis"];
 
@@ -491,19 +552,62 @@ function modifier(id, patch){
     .catch(function(e){ toast("Modification non enregistrée : " + e.message, true); charger(); });
 }
 
+/* Renomme une catégorie partout. nouveau = null vide la catégorie,
+   les meubles retombent dans « Sans catégorie » et ne sont jamais perdus. */
+function majCategorie(ancien, nouveau){
+  articles.forEach(function(a){ if (a.categorie === ancien) a.categorie = nouveau; });
+  var o = ordre(), i = o.indexOf(ancien);
+  if (i > -1){ if (nouveau) o[i] = nouveau; else o.splice(i, 1); poserOrdre(o); }
+  if (filtre === ancien) filtre = nouveau;
+  rendre();
+
+  if (!partage){
+    var tout = lireLocal();
+    tout.forEach(function(a){ if (a.categorie === ancien) a.categorie = nouveau; });
+    ecrireLocal(tout);
+    return Promise.resolve();
+  }
+  return fetch(SB_URL + "/" + TABLE + "?categorie=eq." + encodeURIComponent(ancien), {
+    method: "PATCH", headers: entetes, body: JSON.stringify({ categorie: nouveau })
+  }).then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); })
+    .catch(function(e){ toast("Non enregistré : " + e.message, true); charger(); });
+}
+
+function deplacerCategorie(nom, delta){
+  var liste = categories().map(function(c){ return c.nom; });
+  var i = liste.indexOf(nom), j = i + delta;
+  if (i < 0 || j < 0 || j >= liste.length) return;
+  liste.splice(j, 0, liste.splice(i, 1)[0]);
+  poserOrdre(liste);
+  rendre();
+}
+
 /* =================================================================
    4. RENDU
    ================================================================= */
+function ordre(){
+  try { return JSON.parse(localStorage.getItem(CLE_ORDRE) || "[]"); } catch(e){ return []; }
+}
+function poserOrdre(liste){ localStorage.setItem(CLE_ORDRE, JSON.stringify(liste)); }
+
+/* Les catégories rangées à la main passent devant, dans l'ordre choisi.
+   Les nouvelles arrivent ensuite, par ordre alphabétique. */
 function categories(){
   var vues = {};
   articles.forEach(function(a){ if (a.categorie) vues[a.categorie] = (vues[a.categorie] || 0) + 1; });
-  return Object.keys(vues).sort(function(x,y){ return x.localeCompare(y,"fr"); })
-    .map(function(c){ return { nom:c, n:vues[c] }; });
+  var o = ordre();
+  return Object.keys(vues).sort(function(x, y){
+    var ix = o.indexOf(x), iy = o.indexOf(y);
+    if (ix > -1 && iy > -1) return ix - iy;
+    if (ix > -1) return -1;
+    if (iy > -1) return 1;
+    return x.localeCompare(y, "fr");
+  }).map(function(c){ return { nom:c, n:vues[c] }; });
 }
 
 function rendreFiltres(){
   var cats = categories();
-  var h = '<button class="puce" data-cat="" aria-pressed="' + (filtre === null) + '">Tout'
+  var h = '<button class="puce" data-cat="" aria-pressed="' + (filtre === null) + '">Toutes'
         + (articles.length ? ' <span class="n">' + articles.length + '</span>' : '') + '</button>';
   cats.forEach(function(c){
     h += '<button class="puce" data-cat="' + echapper(c.nom) + '" aria-pressed="'
@@ -555,26 +659,35 @@ function rendre(){
     return;
   }
 
-  // Regroupement par catégorie
-  var groupes = {};
-  articles.forEach(function(a){
-    var c = a.categorie || SANS_CAT;
-    (groupes[c] = groupes[c] || []).push(a);
-  });
+  contenu.setAttribute("data-vue", vue);
 
-  var noms = Object.keys(groupes).sort(function(x, y){
-    if (x === SANS_CAT) return 1;          // toujours en dernier
-    if (y === SANS_CAT) return -1;
-    return x.localeCompare(y, "fr");
-  });
+  var liste = filtre === null ? articles : articles.filter(function(a){ return a.categorie === filtre; });
 
-  if (filtre !== null) noms = noms.filter(function(n){ return n === filtre; });
-
-  if (!noms.length){
+  if (!liste.length){
     contenu.innerHTML = '<div class="vide"><h2>Rien dans « ' + echapper(filtre) + ' »</h2>'
       + '<p>Cette catégorie est vide pour le moment.</p></div>';
     return;
   }
+
+  // Vue « Tout » : une seule grille, sans titres de section
+  if (vue === "tout"){
+    contenu.innerHTML = '<div class="grille">' + liste.map(tuileHTML).join("") + '</div>';
+    return;
+  }
+
+  // Vue « Catégories » : une section par catégorie
+  var groupes = {};
+  liste.forEach(function(a){
+    var c = a.categorie || SANS_CAT;
+    (groupes[c] = groupes[c] || []).push(a);
+  });
+
+  var rang = categories().map(function(c){ return c.nom; });
+  var noms = Object.keys(groupes).sort(function(x, y){
+    if (x === SANS_CAT) return 1;          // toujours en dernier
+    if (y === SANS_CAT) return -1;
+    return rang.indexOf(x) - rang.indexOf(y);
+  });
 
   contenu.innerHTML = noms.map(function(n){
     return '<section class="section">'
@@ -599,7 +712,8 @@ function ouvrirPop(id, bouton){
 
   var pop = document.createElement("div");
   pop.className = "pop";
-  pop.innerHTML = '<div class="pop-titre">Catégorie</div>'
+  pop.innerHTML = '<button data-modifier="1">Modifier la fiche</button><hr>'
+    + '<div class="pop-titre">Catégorie</div>'
     + cats.map(function(c){
         return '<button data-cat="' + echapper(c) + '">' + (c === a.categorie ? "✓ " : "") + echapper(c) + '</button>';
       }).join("")
@@ -611,6 +725,7 @@ function ouvrirPop(id, bouton){
 
   pop.addEventListener("click", function(e){
     var b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.modifier) { fermerPop(); ouvrirAjout(a, a.id); return; }
     if (b.dataset.retirer) { modifier(id, { supprime:true }); toast("Retiré"); }
     else if (b.dataset.cat) { modifier(id, { categorie: b.dataset.cat }); }
     fermerPop();
@@ -736,15 +851,16 @@ function ouvrirVoile(html, persistant){
   return v;
 }
 
-function ouvrirAjout(data){
+function ouvrirAjout(data, idEdite){
   var d = data || { url:"", titre:"", image_url:"", prix:null, boutique:"" };
   // Venu du signet avec tout ce qu'il faut : on ne demande que la catégorie.
-  var complet = !!(d.url && d.titre);
+  // En modification, on montre tout, c'est justement le but.
+  var complet = !idEdite && !!(d.url && d.titre);
   var cats = categories().map(function(c){ return c.nom; });
   CATS_BASE.forEach(function(c){ if (cats.indexOf(c) < 0) cats.push(c); });
 
   var v = ouvrirVoile(
-      '<div class="feuille-tete"><h2>' + (complet ? "Ranger dans" : "Ajouter") + '</h2>'
+      '<div class="feuille-tete"><h2>' + (idEdite ? "Modifier" : (complet ? "Ranger dans" : "Ajouter")) + '</h2>'
     + '<button class="btn btn--fantome" data-fermer>×</button></div>'
     + '<div id="zone-apercu"></div>'
     + '<div class="cats cats--grand" id="f-cats">'
@@ -766,7 +882,7 @@ function ouvrirAjout(data){
     + (complet ? '<button class="lien-details" id="f-plus">Modifier les détails</button>' : '')
     + '<div class="actions-feuille" id="f-actions"' + (complet ? ' hidden' : '') + '>'
     +   '<button class="btn" data-fermer>Annuler</button>'
-    +   '<button class="btn btn--primaire" id="f-ok">Enregistrer</button>'
+    +   '<button class="btn btn--primaire" id="f-ok">' + (idEdite ? "Enregistrer les modifications" : "Enregistrer") + '</button>'
     + '</div>'
   );
 
@@ -805,17 +921,24 @@ function ouvrirAjout(data){
     var prixBrut = v.querySelector("#f-prix").value;
     var btn = v.querySelector("#f-ok");
     if (btn) { btn.disabled = true; btn.textContent = "…"; }
-    ajouter({
+    var champs = {
       url: url,
       titre: v.querySelector("#f-titre").value.trim(),
       image_url: (v.querySelector("#f-image").value.trim() || etat.image_url) || null,
       prix: prixBrut === "" ? null : parseFloat(prixBrut),
       boutique: etat.boutique || null,
-      categorie: cat || null,
-      ajoute_par: qui() || null
-    }).then(function(){
+      categorie: cat || null
+    };
+    var action;
+    if (idEdite){
+      action = Promise.resolve(modifier(idEdite, champs));
+    } else {
+      champs.ajoute_par = qui() || null;
+      action = ajouter(champs);
+    }
+    action.then(function(){
       fermerFeuille();
-      toast(cat ? "Rangé dans " + cat : "Ajouté");
+      toast(idEdite ? "Modifié" : (cat ? "Rangé dans " + cat : "Ajouté"));
     }).catch(function(e){
       if (btn) { btn.disabled = false; btn.textContent = "Enregistrer"; }
       toast("Échec : " + e.message, true);
@@ -840,6 +963,12 @@ function ouvrirAjout(data){
     e.preventDefault();
     enregistrer(this.value.trim());
   });
+
+  if (d.categorie){
+    var courante = v.querySelector('#f-cats [data-choix="' + String(d.categorie).replace(/"/g,'') + '"]');
+    if (courante) courante.setAttribute("aria-pressed", "true");
+    v.querySelector("#champ-cat").removeAttribute("hidden");
+  }
 
   var plus = v.querySelector("#f-plus");
   if (plus) plus.addEventListener("click", toutMontrer);
@@ -937,6 +1066,9 @@ function ouvrirReglages(){
     + '<div class="champ" style="margin-top:16px"><label for="r-qui">Ton prénom</label>'
     +   '<input id="r-qui" type="text" placeholder="Stéphanie" value="' + echapper(qui()) + '"></div>'
     + '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">'
+    + '<p class="aide" style="margin-bottom:10px"><b>Tes catégories.</b> Touche un nom pour le renommer, les flèches pour changer l\'ordre. Supprimer une catégorie ne supprime aucun meuble : ils repassent dans « Sans catégorie ».</p>'
+    + '<div id="r-cats"></div>'
+    + '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">'
     + '<p class="aide"><b>Le signet, sur Mac.</b> Il lit la page depuis ton navigateur, donc il fonctionne même sur les boutiques qui bloquent les robots.</p>'
     + '<p class="aide"><b>Dans Safari, ne fais pas glisser le bouton</b>, Safari abîme le code en le déposant. Copie-le et colle-le à la main :<br>'
     +   '1. Copie le code ci-dessous.<br>'
@@ -948,6 +1080,60 @@ function ouvrirReglages(){
     + '<p class="aide"><b>Sur iPhone</b>, la recette du raccourci « Partager » est dans le fichier <code>signet.md</code> du projet.</p>'
     + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
   );
+  function majCats(){
+    var zone = v.querySelector("#r-cats");
+    var cats = categories();
+    if (!cats.length){ zone.innerHTML = '<p class="aide">Aucune catégorie pour le moment.</p>'; return; }
+    zone.innerHTML = cats.map(function(c, i){
+      return '<div class="cat-ligne" data-nom="' + echapper(c.nom) + '">'
+        + '<button class="cat-nom" style="border:none;background:none;text-align:left;padding:0" title="Renommer">' + echapper(c.nom) + '</button>'
+        + '<span class="cat-nb">' + c.n + '</span>'
+        + '<button class="cat-act" data-monter aria-label="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
+        + '<button class="cat-act" data-descendre aria-label="Descendre"' + (i === cats.length - 1 ? ' disabled' : '') + '>↓</button>'
+        + '<button class="cat-act cat-act--danger" data-supprimer aria-label="Supprimer">✕</button>'
+        + '</div>';
+    }).join("");
+  }
+
+  function renommerEnLigne(ligne, nom){
+    var cible = ligne.querySelector(".cat-nom");
+    if (!cible) return;
+    var inp = document.createElement("input");
+    inp.type = "text"; inp.value = nom;
+    inp.style.cssText = "flex:1;min-width:0;font-size:14px;padding:5px 8px;border:1px solid var(--n-900);border-radius:7px;background:var(--surface);color:var(--text)";
+    cible.replaceWith(inp);
+    inp.focus(); inp.select();
+    var fait = false;
+    function valider(){
+      if (fait) return; fait = true;
+      var n = inp.value.trim();
+      if (n && n !== nom){
+        Promise.resolve(majCategorie(nom, n)).then(majCats);
+        toast("Renommée en " + n);
+      } else majCats();
+    }
+    inp.addEventListener("keydown", function(e){
+      if (e.key === "Enter"){ e.preventDefault(); valider(); }
+      else if (e.key === "Escape"){ fait = true; majCats(); }
+    });
+    inp.addEventListener("blur", valider);
+  }
+
+  majCats();
+  v.querySelector("#r-cats").addEventListener("click", function(e){
+    var ligne = e.target.closest(".cat-ligne"); if (!ligne) return;
+    var nom = ligne.dataset.nom;
+    if (e.target.closest("[data-monter]"))    { deplacerCategorie(nom, -1); majCats(); return; }
+    if (e.target.closest("[data-descendre]")) { deplacerCategorie(nom,  1); majCats(); return; }
+    if (e.target.closest("[data-supprimer]")){
+      if (!confirm('Supprimer la catégorie « ' + nom + ' » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».')) return;
+      Promise.resolve(majCategorie(nom, null)).then(majCats);
+      toast("Catégorie supprimée");
+      return;
+    }
+    if (e.target.closest(".cat-nom")) renommerEnLigne(ligne, nom);
+  });
+
   var code = codeSignet();
   v.querySelector("#r-code").value = code;
   v.querySelector("#r-signet").setAttribute("href", code);
@@ -971,6 +1157,20 @@ function ouvrirReglages(){
 /* =================================================================
    9. DÉMARRAGE
    ================================================================= */
+$("#seg-vue").addEventListener("click", function(e){
+  var b = e.target.closest("[data-vue]"); if (!b) return;
+  vue = b.dataset.vue;
+  localStorage.setItem(CLE_VUE, vue);
+  Array.prototype.forEach.call(this.querySelectorAll("button"), function(x){
+    x.setAttribute("aria-pressed", x === b);
+  });
+  rendre();
+  window.scrollTo({ top:0, behavior:"smooth" });
+});
+Array.prototype.forEach.call($("#seg-vue").querySelectorAll("button"), function(x){
+  x.setAttribute("aria-pressed", x.dataset.vue === vue);
+});
+
 $("#btn-ajouter").addEventListener("click", function(){ ouvrirAjout(null); });
 $("#btn-reglages").addEventListener("click", ouvrirReglages);
 
