@@ -105,6 +105,7 @@ a{color:inherit}
 .btn--fantome{border-color:transparent;background:transparent;color:var(--text-muted);padding:8px 10px}
 .btn--fantome:hover{background:var(--n-200);color:var(--text)}
 .btn--danger{color:var(--danger)}
+.btn:disabled{opacity:.35;cursor:default;pointer-events:none}
 
 /* ---------- Filtres ---------- */
 .barre{
@@ -448,6 +449,16 @@ a{color:inherit}
   background:var(--n-200);padding:1px 5px;border-radius:4px;font-size:11.5px;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
 }
+.reorg-liste{list-style:none;margin:0;padding:0}
+.reorg-ligne{touch-action:none;user-select:none;-webkit-user-select:none;cursor:default}
+.reorg-poignee{
+  flex:0 0 auto;font-size:16px;color:var(--text-subtle);cursor:grab;
+  padding:2px 4px;line-height:1;touch-action:none;
+}
+.reorg-drag{
+  position:relative;z-index:5;background:var(--n-100);
+  box-shadow:0 4px 14px rgba(0,0,0,.12);
+}
 .signet-lien{
   display:inline-block;margin:8px 0;padding:9px 16px;border-radius:var(--r-pill);
   background:var(--primary);color:var(--on-primary);text-decoration:none;
@@ -510,7 +521,7 @@ a{color:inherit}
   <div class="tete-haut">
     <h1 class="marque">fav-deco <span class="compte" id="compte"></span></h1>
     <div class="tete-actions">
-      <button class="btn btn--fantome" id="btn-reglages" title="Réglages et signet">Réglages</button>
+      <button class="btn btn--fantome" id="btn-reglages" title="Installer le signet et démarrer">Commencer à utiliser l'app</button>
       <button class="btn btn--primaire" id="btn-ajouter">Ajouter</button>
     </div>
   </div>
@@ -524,6 +535,7 @@ a{color:inherit}
       <button data-col="2" aria-label="Deux colonnes" aria-pressed="true"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="5.6" height="13" rx="1.6"/><rect x="8.4" y="1" width="5.6" height="13" rx="1.6"/></svg></button>
       <button data-col="3" aria-label="Trois colonnes" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="3.4" height="13" rx="1.1"/><rect x="5.8" y="1" width="3.4" height="13" rx="1.1"/><rect x="10.6" y="1" width="3.4" height="13" rx="1.1"/></svg></button>
     </div>
+    <button class="btn btn--fantome btn--petit" id="btn-reorganiser">Réorganiser</button>
     <button class="btn btn--fantome btn--petit" id="btn-gerer">Gérer</button>
   </div>
   <div class="barre"><div class="filtres" id="filtres"></div></div>
@@ -809,15 +821,6 @@ function majCategorie(ancien, nouveau){
   }).catch(function(e){ toast("Non enregistré : " + e.message, true); charger(); });
 }
 
-function deplacerCategorie(nom, delta){
-  var liste = categories().map(function(c){ return c.nom; });
-  var i = liste.indexOf(nom), j = i + delta;
-  if (i < 0 || j < 0 || j >= liste.length) return;
-  liste.splice(j, 0, liste.splice(i, 1)[0]);
-  poserOrdre(liste);
-  rendre();
-}
-
 /* Ordre des articles À L'INTÉRIEUR d'une catégorie : champ `rang`, partagé
    (Firestore), à la différence de l'ordre des catégories qui reste local à
    chaque appareil. Sans rang (valeur par défaut), l'ordre reste celui de
@@ -953,7 +956,7 @@ function rendre(){
       + '<h2>Rien pour l\'instant</h2>'
       + '<p>Ajoute un premier meuble en collant son lien, ou installe le signet pour l\'attraper en un clic depuis la boutique.</p>'
       + '<button class="btn btn--primaire" data-action="ajouter">Coller un lien</button>'
-      + '<p class="aide" style="margin-top:18px">La plupart des boutiques bloquent la lecture automatique d\'un lien collé. Pour tout récupérer en un clic, installe le signet depuis <b>Réglages</b>.</p>'
+      + '<p class="aide" style="margin-top:18px">La plupart des boutiques bloquent la lecture automatique d\'un lien collé. Pour tout récupérer en un clic, installe le signet depuis <b>Commencer à utiliser l\'app</b>.</p>'
       + '</div>';
     return;
   }
@@ -991,18 +994,13 @@ function rendre(){
     return rang.indexOf(x) - rang.indexOf(y);
   });
 
-  var bougeables = noms.filter(function(x){ return x !== SANS_CAT; });
-
   contenu.innerHTML = noms.map(function(n){
     var titre;
     if (gestion && n !== SANS_CAT){
-      var im = bougeables.indexOf(n);
       titre = '<h2 class="section-titre section-titre--gestion">'
         + '<button class="sec-nom" data-cat-renommer="' + echapper(n) + '">' + echapper(n) + '</button>'
         + '<span class="section-n">' + groupes[n].length + '</span>'
         + '<span class="sec-actions">'
-        +   '<button class="cat-act" data-cat-monter="' + echapper(n) + '"' + (im === 0 ? ' disabled' : '') + ' aria-label="Monter">↑</button>'
-        +   '<button class="cat-act" data-cat-descendre="' + echapper(n) + '"' + (im === bougeables.length - 1 ? ' disabled' : '') + ' aria-label="Descendre">↓</button>'
         +   '<button class="cat-act cat-act--danger" data-cat-suppr="' + echapper(n) + '" aria-label="Supprimer">✕</button>'
         + '</span></h2>';
     } else {
@@ -1311,7 +1309,7 @@ function ouvrirAjout(data, idEdite){
     }).catch(function(){
       majApercu();
       v.querySelector("#zone-apercu").insertAdjacentHTML("beforeend",
-        '<p class="aide"><b>Cette boutique bloque la lecture automatique.</b> IKEA, La Redoute et Kave Home sont dans ce cas. Le signet, lui, lit la page depuis ton navigateur et récupère tout d\'un coup : installe-le depuis Réglages. Sinon, remplis le nom et la photo à la main.</p>');
+        '<p class="aide"><b>Cette boutique bloque la lecture automatique.</b> IKEA, La Redoute et Kave Home sont dans ce cas. Le signet, lui, lit la page depuis ton navigateur et récupère tout d\'un coup : installe-le depuis <b>Commencer à utiliser l\'app</b>. Sinon, remplis le nom et la photo à la main.</p>');
     });
   }
   champUrl.addEventListener("change", tenterEnrichir);
@@ -1417,7 +1415,7 @@ function codeRaccourciIOS(){
 
 function ouvrirReglages(){
   var v = ouvrirVoile(
-      '<div class="feuille-tete"><h2>Réglages</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
+      '<div class="feuille-tete"><h2>Commencer à utiliser l\'app</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
     + (partage
         ? '<p class="aide">Liste partagée : tes ajouts et ceux de Frédéric arrivent au même endroit.</p>'
         : '<div class="alerte"><b>Mode local.</b> Firebase n\'est pas encore configuré, cette liste ne vit que sur cet appareil et n\'est pas partagée. Renseigne <code>FB_PROJECT</code> et <code>FB_API_KEY</code> en haut du fichier.</div>')
@@ -1477,6 +1475,85 @@ function ouvrirReglages(){
   v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
 }
 
+/* Réorganiser les catégories par glisser-déposer, dans une liste à une
+   seule colonne plutôt que dans la grille de vignettes : plus simple à
+   suivre (une seule dimension) et plus fiable au doigt qu'un glisser
+   dans une grille dont les lignes/colonnes changent selon la largeur. */
+function ouvrirReorganisationCategories(){
+  var cats = categories();
+  if (cats.length < 2) return;
+  var v = ouvrirVoile(
+      '<div class="feuille-tete"><h2>Réorganiser les catégories</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
+    + '<p class="aide" style="margin-bottom:10px">Fais glisser une catégorie par sa poignée pour changer son ordre.</p>'
+    + '<ul class="reorg-liste" id="reorg-liste">'
+    + cats.map(function(c){
+        return '<li class="cat-ligne reorg-ligne" data-cat="' + echapper(c.nom) + '">'
+          + '<span class="reorg-poignee" aria-hidden="true">⠿</span>'
+          + '<span class="cat-nom">' + echapper(c.nom) + '</span>'
+          + '<span class="cat-nb">' + c.n + '</span>'
+          + '</li>';
+      }).join("")
+    + '</ul>'
+    + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
+  );
+  activerGlisserCategories(v.querySelector("#reorg-liste"));
+  v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
+}
+
+/* Glisser-déposer sur une liste à une colonne (Pointer Events : même
+   code pour souris et tactile). Le rang glissé suit le doigt/curseur
+   librement (transform), les autres lignes se décalent d'une hauteur de
+   ligne complète (H) quand on les dépasse. Ordre commité au relâcher. */
+function activerGlisserCategories(liste){
+  if (!liste) return;
+  var dragging = null, depart = 0, indexDepart = 0, indexAct = 0, H = 0, ordreVisuel = [];
+
+  liste.addEventListener("pointerdown", function(e){
+    var poignee = e.target.closest(".reorg-poignee");
+    if (!poignee) return;
+    dragging = poignee.closest("li");
+    ordreVisuel = Array.prototype.slice.call(liste.children);
+    indexDepart = indexAct = ordreVisuel.indexOf(dragging);
+    depart = e.clientY;
+    H = dragging.getBoundingClientRect().height;
+    dragging.classList.add("reorg-drag");
+    dragging.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  liste.addEventListener("pointermove", function(e){
+    if (!dragging) return;
+    var dy = e.clientY - depart;
+    dragging.style.transform = "translateY(" + dy + "px)";
+    var cible = indexDepart + Math.round(dy / H);
+    cible = Math.max(0, Math.min(ordreVisuel.length - 1, cible));
+    if (cible !== indexAct){
+      var pas = cible > indexAct ? 1 : -1;
+      for (var i = indexAct; i !== cible; i += pas){
+        ordreVisuel[i + pas].style.transition = "transform .15s ease";
+        ordreVisuel[i + pas].style.transform = "translateY(" + (-pas * H) + "px)";
+      }
+      indexAct = cible;
+    }
+  });
+
+  function relacher(e){
+    if (!dragging) return;
+    ordreVisuel.forEach(function(li){
+      li.style.transition = ""; li.style.transform = "";
+    });
+    ordreVisuel.splice(indexDepart, 1);
+    ordreVisuel.splice(indexAct, 0, dragging);
+    ordreVisuel.forEach(function(li){ liste.appendChild(li); });
+    dragging.classList.remove("reorg-drag");
+    dragging = null;
+    poserOrdre(ordreVisuel.map(function(li){ return li.dataset.cat; }));
+    rendre();
+  }
+  liste.addEventListener("pointerup", relacher);
+  liste.addEventListener("pointercancel", relacher);
+}
+
 /* =================================================================
    9. DÉMARRAGE
    ================================================================= */
@@ -1484,6 +1561,8 @@ function majCommandes(){
   var estCat = vue === "cat";
   $("#seg-col").hidden = !estCat;
   $("#btn-gerer").hidden = !estCat;
+  $("#btn-reorganiser").hidden = !estCat;
+  $("#btn-reorganiser").disabled = categories().length < 2;
   Array.prototype.forEach.call($("#seg-col").querySelectorAll("button"), function(x){
     x.setAttribute("aria-pressed", x.dataset.col === colonnes);
   });
@@ -1502,6 +1581,8 @@ $("#btn-gerer").addEventListener("click", function(){
   this.textContent = gestion ? "Terminé" : "Gérer";
   rendre();
 });
+
+$("#btn-reorganiser").addEventListener("click", ouvrirReorganisationCategories);
 
 /* Gestion des catégories directement sur les titres de section */
 function renommerSection(bouton, nom){
@@ -1530,11 +1611,9 @@ $("#contenu").addEventListener("click", function(e){
     if (art.hasAttribute("data-art-monter")) return deplacerArticle(art.dataset.artMonter, -1);
     return deplacerArticle(art.dataset.artDescendre, 1);
   }
-  var b = e.target.closest("[data-cat-monter],[data-cat-descendre],[data-cat-suppr],[data-cat-renommer]");
+  var b = e.target.closest("[data-cat-suppr],[data-cat-renommer]");
   if (!b) return;
   e.preventDefault();
-  if (b.hasAttribute("data-cat-monter"))    return deplacerCategorie(b.dataset.catMonter, -1);
-  if (b.hasAttribute("data-cat-descendre")) return deplacerCategorie(b.dataset.catDescendre, 1);
   if (b.hasAttribute("data-cat-renommer"))  return renommerSection(b, b.dataset.catRenommer);
   var n = b.dataset.catSuppr;
   if (!confirm('Supprimer la catégorie « ' + n + ' » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».')) return;

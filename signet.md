@@ -42,7 +42,7 @@ encodée du code, où les espaces deviennent `%20` et les apostrophes `%27`. Le 
 devient une erreur de syntaxe et il ne se passe strictement rien au clic, sans le moindre
 message. C'est le piège qui a coûté un aller-retour le 18/08/2026.
 
-1. Ouvre fav-deco, clique sur **Réglages**.
+1. Ouvre fav-deco, clique sur **Commencer à utiliser l'app**.
 2. Clique sur **Copier le code du signet**.
 3. Menu **Signets**, puis **Modifier les signets**.
 4. Clic droit dans le dossier **Favoris**, puis **Nouveau signet**.
@@ -50,8 +50,8 @@ message. C'est le piège qui a coûté un aller-retour le 18/08/2026.
 
 ### Dans Chrome
 
-Le glisser-déposer fonctionne : fais glisser le bouton « + fav-deco » depuis Réglages
-directement dans la barre de favoris.
+Le glisser-déposer fonctionne : fais glisser le bouton « + fav-deco » depuis
+**Commencer à utiliser l'app** directement dans la barre de favoris.
 
 ### À l'usage
 
@@ -67,20 +67,41 @@ tu enregistres.
 Le signet contient l'adresse de l'app au moment où tu l'as copié. **Tant que l'app n'est
 pas déployée en ligne, le signet pointe vers une adresse locale temporaire et ne peut pas
 fonctionner depuis une page de boutique en https.** Il faut donc déployer l'app d'abord,
-puis reprendre le code du signet depuis Réglages. Même chose si tu redéploies ailleurs
-plus tard.
+puis reprendre le code du signet depuis **Commencer à utiliser l'app**. Même chose si tu
+redéploies ailleurs plus tard.
 
 ---
 
 ## 2. Sur iPhone : le raccourci Partager
 
-L'équivalent du signet, dans le menu Partager de Safari.
+L'équivalent du signet, dans le menu Partager de Safari. **Le plus simple : transmettre
+le raccourci déjà fait par AirDrop**, pas besoin de le reconstruire à la main.
+
+### Recevoir le raccourci par AirDrop (méthode recommandée)
+
+1. Sur l'iPhone qui a déjà le raccourci (Stéphanie), ouvre l'app **Raccourcis**, trouve
+   **Ajouter à la déco**.
+2. Appui long dessus (ou **...** en haut si le raccourci est ouvert) → **Partager** →
+   **AirDrop**, et envoie-le à Frédéric.
+3. Frédéric accepte la réception AirDrop, puis **Ajouter le raccourci** dans l'app
+   Raccourcis qui s'ouvre.
+4. À la première utilisation, iOS demande d'autoriser l'exécution de JavaScript sur la
+   page : il faut accepter, sinon le raccourci ne peut pas lire la page produit.
+
+### Le créer à la main (si l'AirDrop n'est pas possible)
+
+Vécu le 18/08/2026 : cette création manuelle est **fastidieuse**, l'interface de
+Raccourcis a changé selon les versions d'iOS et les étapes ci-dessous peuvent ne pas
+correspondre exactement à ce qui s'affiche. Préférer l'AirDrop dès que possible.
 
 1. Ouvre l'app **Raccourcis**, appuie sur **+**.
 2. Renomme le raccourci **Ajouter à la déco**.
-3. Touche l'icône **(i)** en bas, puis active **Afficher dans la feuille de partage**.
-4. Juste en dessous, règle **Types d'entrée acceptés** sur **Pages web Safari**
-   uniquement.
+3. Ouvre le panneau **Détails** (l'icône a varié selon les versions : un rond « i », ou
+   une icône de réglages/curseurs). Vérifie que **Dans la feuille de partage** est
+   activé.
+4. Le réglage « Types d'entrée acceptés » n'existe plus séparément sur les versions
+   récentes d'iOS. Pas bloquant : l'action ajoutée à l'étape suivante ne fonctionne que
+   dans Safari, ce qui suffit à limiter le raccourci à ce contexte.
 5. Ajoute l'action **Exécuter JavaScript sur la page web**.
 6. Remplace tout le contenu de l'action par le code ci-dessous, en remplaçant
    `ADRESSE_DE_LAPP` par l'adresse réelle de fav-deco.
@@ -129,8 +150,6 @@ completion("ADRESSE_DE_LAPP#add=" + encodeURIComponent(JSON.stringify(o)));
 
 > La première fois, iOS demande l'autorisation d'exécuter du JavaScript sur la page.
 > C'est normal, il faut accepter, sinon le raccourci ne peut pas lire la page.
-
-Frédéric doit installer le raccourci de son côté, sur son iPhone.
 
 ---
 
