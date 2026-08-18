@@ -3,8 +3,9 @@
 > Une liste partagée entre Stéphanie et Frédéric, pour remplacer la note Apple où les
 > liens de meubles s'empilaient sans classement.
 
-**Statut :** v1 fonctionnelle, en ligne, mais **en mode local seulement** (pas encore
-partagée entre les deux). Créé le 2026-08-18.
+**Statut :** v1 fonctionnelle, **en ligne et partagée** entre Stéphanie et Frédéric
+(Firestore branché, signet Mac et raccourci iPhone installés des deux côtés). Créé le
+2026-08-18.
 **Type :** web app perso, partagée à deux.
 **Notion :** aucun, projet volontairement hors Notion.
 **En ligne :** https://stephjunak.github.io/fav-deco/
@@ -43,8 +44,8 @@ pas faire cette étape). Vérifié en conditions réelles sur les 4 boutiques vi
 Le signet et le raccourci **ne contiennent pas la clé de la base**. Ils extraient les
 données et ouvrent l'app avec un `#add=`. L'app est le seul endroit qui parle à la base.
 Les instructions d'installation (Mac et iPhone) sont dans `signet.md`, et aussi
-directement dans le panneau **Réglages** de l'app (bouton « Copier le code »), pour ne
-pas avoir à rouvrir le dépôt.
+directement dans le panneau **Commencer à utiliser l'app** (bouton « Copier le code »),
+pour ne pas avoir à rouvrir le dépôt.
 
 ## Les photos : jamais de hotlinking
 
@@ -66,26 +67,34 @@ session, sur demande explicite. Si une photo ne passe pas par le proxy, elle res
 manquante (« Photo indisponible ») plutôt que d'être chargée directement. Le seul vrai
 correctif est de corriger l'URL stockée sur la fiche.
 
-### Sites qui posent problème, et leur correctif connu
+### Repli automatique : i0.wp.com quand wsrv.nl bloque
 
-- **Sklum bloque le proxy sur sa variante `-large_default`** (403), alors que la même
-  photo passe très bien via une autre URL disponible dans le JSON-LD du produit. Le
-  signet choisit déjà la bonne URL en priorité ; le souci touche surtout les articles
-  ajoutés par **collage de lien** (microlink retient l'autre variante).
-- **decoclico a des erreurs dans son propre balisage produit** : le JSON-LD annonce une
-  adresse d'image qui n'existe pas sur leur serveur (ex. `140-x-200` dans le nom de
-  fichier alors que le vrai fichier utilise `140-x-20`). La vraie photo existe, juste à
-  une adresse légèrement différente, trouvable en inspectant les `<img>` réels de la
-  page produit.
-- **IKEA a bloqué le proxy plus largement** un jour de tests intensifs (plusieurs
-  images différentes, pas une seule) ; pas certain que ce soit permanent.
+Confirmé le 18/08/2026 : **IKEA bloque wsrv.nl de façon systématique** (403 sur toutes
+les images testées, pas une variante isolée). `repliImage()` retente alors une fois via
+**i0.wp.com** (Jetpack Photon, WordPress/Automattic) avant d'afficher « Photo
+indisponible ». Vérifié sans régression sur Sklum.
 
-Décision actuelle : corriger au cas par cas (Stéphanie signale l'article, correctif
-trouvé et collé dans « Modifier la fiche »), pas de systématisation pour l'instant.
-**À reconsidérer si Frédéric utilise l'app souvent et que ça devient fréquent** — la
-solution complète serait de télécharger et stocker une copie permanente de chaque photo
-au moment de l'ajout (Storage + une petite fonction serveur), au lieu de dépendre d'un
-proxy tiers et de la politique de chaque vendeur.
+wsrv.nl reste le proxy **principal** partout : c'est un service pensé pour ce rôle
+(proxy public), alors qu'i0.wp.com est un service interne à l'écosystème WordPress
+détourné de son usage, moins sûr dans la durée si Automattic change sa politique. D'où
+le choix d'un repli ciblé plutôt qu'un remplacement complet.
+
+### Sites qui ont posé problème
+
+- **Sklum bloquait le proxy sur sa variante `-large_default`** (403), la même photo
+  passant très bien via une autre URL du JSON-LD. Le signet choisit déjà la bonne URL en
+  priorité. **Plus de souci signalé depuis (18/08/2026)**, à garder en tête si ça
+  revient.
+- **decoclico a des erreurs dans son propre balisage produit** : le JSON-LD peut
+  annoncer une adresse d'image qui n'existe pas sur leur serveur (ex. `140-x-200` au lieu
+  de `140-x-20` dans le nom de fichier). **Plus de souci signalé depuis (18/08/2026)**.
+
+Décision actuelle : corriger au cas par cas si ça revient (Stéphanie signale l'article,
+correctif collé dans « Modifier la fiche »), pas de systématisation. **À reconsidérer si
+les photos manquantes redeviennent fréquentes** — la solution complète serait de
+télécharger et stocker une copie permanente de chaque photo au moment de l'ajout
+(Storage + une petite fonction serveur), au lieu de dépendre de proxys tiers et de la
+politique de chaque vendeur.
 
 ## Architecture
 
@@ -133,13 +142,19 @@ Trois différences absorbées par la couche de stockage (`charger`/`ajouter`/`mo
 - **1, 2 ou 3 colonnes de catégories**, avec des vignettes qui gardent la même taille
   partout dans un même mode (le nombre de colonnes de *produits* par catégorie est fixé
   explicitement pour ça, jamais déduit d'une largeur).
-- **Gérer** (bouton dans l'en-tête) : renommer, réordonner ou supprimer une catégorie
-  directement sur les titres de section. Supprimer une catégorie ne supprime aucun
-  meuble, ils repassent dans « Sans catégorie ». Cet ordre est **local à chaque
-  appareil**, pas partagé.
-- **Réorganiser les articles à l'intérieur d'une catégorie** (flèches ↑↓ en mode Gérer),
-  via un champ `rang` par article. Celui-ci est **partagé** (Firestore), contrairement à
-  l'ordre des catégories.
+- **Gérer les catégories** (bouton dans l'en-tête) : fenêtre dédiée listant les
+  catégories, une par ligne. Glisser-déposer par la poignée pour changer l'ordre
+  (Pointer Events, même code souris et tactile), nom éditable directement dans la ligne,
+  suppression avec confirmation. Supprimer une catégorie ne supprime aucun meuble, ils
+  repassent dans « Sans catégorie ». Cet ordre est **local à chaque appareil**, pas
+  partagé. Remplace l'ancien réglage inline sur les titres de section (pas assez
+  intuitif : le retour de Stéphanie est que ce n'était pas clair que le nom cliqué se
+  renommait).
+- **Réorganiser les articles** (bouton dans l'en-tête, ex-« Gérer ») : ordre des articles
+  à l'intérieur d'une catégorie, via des flèches ↑↓ et un champ `rang` par article. Celui-
+  ci est **partagé** (Firestore), contrairement à l'ordre des catégories. Hors périmètre
+  du passage au glisser-déposer (demande explicite : seules les catégories devaient
+  changer).
 - **Croix de suppression** sur chaque vignette, avec 5 secondes pour Annuler (toast avec
   bouton d'action).
 - **Menu « ··· »** réduit à « Modifier la fiche » (nom, photo, prix, lien, catégorie
@@ -147,6 +162,10 @@ Trois différences absorbées par la couche de stockage (`charger`/`ajouter`/`mo
 - Prénom demandé une fois au premier lancement, associé automatiquement à chaque ajout.
 
 ## Installation
+
+> Déjà fait pour ce projet (`FB_PROJECT`/`FB_API_KEY` renseignés dans `index.html`,
+> Firestore en ligne). Section gardée comme documentation, utile en cas de redéploiement
+> ou de nouveau projet Firebase.
 
 ### 1. Créer le projet Firebase
 
@@ -189,7 +208,7 @@ mais les données restent sur l'appareil et ne sont pas partagées.
 
 ### 3. Capture
 
-Voir `signet.md`, ou le panneau Réglages de l'app.
+Voir `signet.md`, ou le panneau **Commencer à utiliser l'app**.
 
 ## Sécurité, choix assumés
 
@@ -202,25 +221,18 @@ Voir `signet.md`, ou le panneau Réglages de l'app.
 
 ## État actuel
 
-Fonctionnel de bout en bout **en mode local** (testé : ajout, modification, suppression,
-annulation, catégories, réorganisation). En ligne sur GitHub Pages. Le signet Mac et les
-instructions iPhone sont prêts et testés sur de vraies pages produit (IKEA, La Redoute,
-Kave Home, Sklum).
+**En production, partagé entre Stéphanie et Frédéric.** Firestore branché, les 36 fiches
+initiales (créées en mode local avant le branchement) migrées avec succès, signet Mac et
+raccourci iPhone installés et testés des deux côtés (raccourci transmis à Frédéric par
+AirDrop). Testé de bout en bout : ajout, modification, suppression, annulation,
+catégories (ordre, renommage, suppression), réorganisation des articles. Plus de souci
+de photo manquante signalé (Sklum, decoclico, IKEA via le repli i0.wp.com).
 
-**Ce qui bloque le partage réel entre Stéphanie et Frédéric :** le projet Firebase est
-créé, la base Firestore et ses règles sont en place, mais l'app n'a pas encore l'ID du
-projet ni la clé API (session interrompue par un souci de connexion Google pendant que
-Claude pilotait un navigateur pour aller les chercher).
-
-Reste à faire, dans l'ordre :
-1. Récupérer l'ID du projet Firebase et la clé API (Paramètres du projet → Vos
-   applications), les donner à Claude.
-2. Vérifier en conditions réelles (ajout, modification, catégories, depuis deux
-   appareils) avant de considérer que c'est fini.
-3. Installer le signet (Mac) et le raccourci Partager (iPhone), pour Stéphanie et pour
-   Frédéric.
-4. Corriger les quelques fiches aux photos manquantes (Sklum, decoclico) avec les
-   adresses déjà identifiées dans la section « Sites qui posent problème ».
+Rien de bloquant à ce stade. Si besoin de continuer :
+- Corriger au cas par cas si une photo redevient manquante (voir « Sites qui ont posé
+  problème »).
+- Reconsidérer la solution de stockage permanent des photos (voir « Repli automatique »)
+  si les proxys tiers deviennent un point de friction récurrent.
 
 ## Bugs connus et pièges rencontrés
 
@@ -251,8 +263,24 @@ Reste à faire, dans l'ordre :
   plutôt qu'un glisser-déposer pour Safari.
 - Le serveur de preview lancé par Claude Code n'a pas accès à `~/Documents` et renvoie
   404. Contournement : servir depuis Bash, puis y pointer le navigateur.
+- **Basculer `FB_PROJECT`/`FB_API_KEY` de vide à renseigné change instantanément la
+  source de données lue par l'app**, de `localStorage` vers Firestore (`partage` dans
+  `index.html`) : plus jamais de lecture du stockage local une fois ces valeurs
+  présentes. Les données ajoutées en mode local restent intactes sur l'appareil mais
+  deviennent invisibles d'un coup, ce qui a fait croire à une base vidée. Vérifier
+  `localStorage.getItem('favdeco:items')` sur l'appareil concerné avant de s'inquiéter ;
+  la migration se fait ensuite par script (API REST Firestore, un `POST` par fiche).
+- **Partage d'un raccourci iOS à un tiers : trois pièges différents.** L'erreur « iPhone
+  non connecté à iCloud » lors d'un partage par lien iCloud vient en réalité du réglage
+  iCloud propre à l'app **Raccourcis** (Réglages → iCloud → Raccourcis) ou d'un espace
+  iCloud plein, pas d'une vraie déconnexion du compte. Un fichier `.shortcut` envoyé par
+  **SMS** (pas iMessage) arrive souvent corrompu ou illisible : préférer l'**AirDrop**
+  direct ou **Mail**. Et même reçu intact, le destinataire ne peut pas l'ajouter tant que
+  **« Autoriser les raccourcis non fiables »** (Réglages → Raccourcis → Avancé) n'est pas
+  activé : ce réglage n'apparaît lui-même qu'après avoir déjà utilisé au moins un
+  raccourci de la galerie Apple, piège pour qui n'a jamais ouvert l'app.
 
 ## Prochaine étape
 
-Récupérer l'ID du projet Firebase et sa clé API (Paramètres du projet → Vos
-applications), les donner à Claude pour finir de brancher le partage.
+Aucune identifiée. Le projet est en usage normal ; revenir ici seulement si un nouveau
+besoin ou un souci récurrent apparaît.
