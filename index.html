@@ -108,9 +108,10 @@ a{color:inherit}
 
 /* ---------- Filtres ---------- */
 .barre{
-  display:flex;gap:10px;align-items:center;
-  padding:0 16px 12px;max-width:1400px;margin:0 auto;
+  display:flex;gap:8px;align-items:center;
+  padding:0 16px 10px;max-width:1400px;margin:0 auto;
 }
+.barre:last-child{padding-bottom:12px}
 .seg{
   display:inline-flex;flex:0 0 auto;background:var(--n-200);
   border-radius:var(--r-pill);padding:3px;gap:2px;
@@ -124,13 +125,44 @@ a{color:inherit}
   background:var(--surface);color:var(--text);font-weight:600;
   box-shadow:0 1px 2px rgba(0,0,0,.09);
 }
+
+/* Choix du nombre de colonnes, à la manière des sites e-commerce */
+.cols{display:inline-flex;flex:0 0 auto;gap:2px;background:var(--n-200);border-radius:var(--r-pill);padding:3px}
+.cols button{
+  border:none;background:none;border-radius:var(--r-pill);padding:6px 8px;
+  display:grid;place-items:center;color:var(--text-subtle);line-height:0;
+  transition:background .15s,color .15s;
+}
+.cols button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.09)}
+.cols svg{display:block}
+
+.btn--petit{padding:6px 11px;font-size:13px}
+.btn--actif{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.btn--actif:hover{background:#332F2A;color:var(--on-primary)}
+
+/* Mode gestion : les commandes apparaissent sur les titres de section */
+.sec-actions{display:inline-flex;gap:0;margin-left:auto;flex:0 0 auto}
+.sec-actions .cat-act{flex:0 0 auto;padding:4px 5px}
+.section-titre--gestion{
+  background:var(--n-200);border-radius:8px;padding:4px 4px 4px 9px;margin-bottom:10px;
+}
+.section-titre--gestion .sec-nom{
+  border:none;background:none;padding:0;font:inherit;color:inherit;
+  letter-spacing:inherit;text-transform:inherit;text-decoration:underline;
+  text-underline-offset:3px;cursor:text;
+  /* doit pouvoir rétrécir, sinon la ligne déborde de la colonne */
+  min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.sec-renom{
+  flex:1;min-width:0;font-size:13px;padding:4px 7px;border:1px solid var(--n-900);
+  border-radius:6px;background:var(--surface);color:var(--text);
+}
 .filtres{
   display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
   flex:1;min-width:0;
-  padding-left:10px;border-left:1px solid var(--border-strong);
   -webkit-overflow-scrolling:touch;
 }
-.filtres:empty{border-left:none;padding-left:0}
+.barre:has(.filtres:empty){display:none}
 .filtres::-webkit-scrollbar{display:none}
 .puce{
   flex:0 0 auto;border:1px solid var(--border-strong);background:transparent;
@@ -152,31 +184,32 @@ a{color:inherit}
    chacune une ligne entière. Les vignettes ont un ratio fixe, donc leur
    hauteur est connue avant le chargement des photos : c'est ce qui rend
    ce découpage en colonnes fiable ici. */
-#contenu[data-vue="cat"]{columns:2;column-gap:20px}
-@media(min-width:1100px){ #contenu[data-vue="cat"]{columns:3} }
-@media(min-width:1500px){ #contenu[data-vue="cat"]{columns:4} }
+/* Grille, et non colonnes libres : les rangées démarrent toutes à la
+   même hauteur. Les colonnes libres décalaient les sections les unes par
+   rapport aux autres dès que leurs hauteurs différaient. */
+#contenu[data-vue="cat"]{display:grid;gap:4px 20px;align-items:start}
+#contenu[data-vue="cat"][data-col="1"]{grid-template-columns:1fr}
+#contenu[data-vue="cat"][data-col="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+#contenu[data-vue="cat"][data-col="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
 
-.section{
-  break-inside:avoid;-webkit-column-break-inside:avoid;
-  margin:0 0 24px;
-}
+.section{margin:0 0 22px;min-width:0}
 .section-titre{
-  display:flex;align-items:baseline;gap:8px;margin:0 0 12px;
+  display:flex;align-items:baseline;gap:8px;margin:0 0 12px;min-width:0;
   font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
   color:var(--text-muted);
 }
 .section-n{
   font-size:11px;font-weight:400;color:var(--text-subtle);
-  font-variant-numeric:tabular-nums;letter-spacing:0;
+  font-variant-numeric:tabular-nums;letter-spacing:0;flex:0 0 auto;
 }
 
 .grille{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:var(--gouttiere);align-items:start;
 }
-/* Par catégorie : la section occupe déjà une colonne étroite */
-#contenu[data-vue="cat"] .grille{grid-template-columns:1fr}
-@media(min-width:700px){ #contenu[data-vue="cat"] .grille{grid-template-columns:repeat(2,minmax(0,1fr))} }
+/* Par catégorie : les vignettes remplissent la largeur que la section
+   a reçue, quel que soit le nombre de colonnes choisi. */
+#contenu[data-vue="cat"] .grille{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
 
 /* Tout : une seule grande grille */
 @media(min-width:640px){ #contenu[data-vue="tout"] .grille{grid-template-columns:repeat(3,minmax(0,1fr))} }
@@ -424,8 +457,14 @@ a{color:inherit}
       <button data-vue="cat" aria-pressed="true">Catégories</button>
       <button data-vue="tout" aria-pressed="false">Tout</button>
     </div>
-    <div class="filtres" id="filtres"></div>
+    <div class="cols" id="seg-col">
+      <button data-col="1" aria-label="Une colonne" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="13" height="13" rx="2"/></svg></button>
+      <button data-col="2" aria-label="Deux colonnes" aria-pressed="true"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="5.6" height="13" rx="1.6"/><rect x="8.4" y="1" width="5.6" height="13" rx="1.6"/></svg></button>
+      <button data-col="3" aria-label="Trois colonnes" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="3.4" height="13" rx="1.1"/><rect x="5.8" y="1" width="3.4" height="13" rx="1.1"/><rect x="10.6" y="1" width="3.4" height="13" rx="1.1"/></svg></button>
+    </div>
+    <button class="btn btn--fantome btn--petit" id="btn-gerer">Gérer</button>
   </div>
+  <div class="barre"><div class="filtres" id="filtres"></div></div>
 </header>
 
 <main id="contenu"></main>
@@ -449,6 +488,7 @@ var CLE_LOCALE = "favdeco:items";
 var CLE_QUI    = "favdeco:qui";
 var CLE_VUE    = "favdeco:vue";
 var CLE_ORDRE  = "favdeco:ordre";
+var CLE_COL    = "favdeco:col";
 
 var partage = !!(SB_URL && SB_KEY);
 var entetes = {
@@ -463,6 +503,9 @@ var entetes = {
 var articles = [];
 var filtre = null;          // null = tout
 var vue = localStorage.getItem("favdeco:vue") === "tout" ? "tout" : "cat";
+var colonnes = ["1","2","3"].indexOf(localStorage.getItem("favdeco:col")) > -1
+             ? localStorage.getItem("favdeco:col") : "2";
+var gestion = false;
 var popOuvert = null;
 var CATS_BASE = ["Canapé","Table","Chaise","Luminaire","Rangement","Lit","Déco","Tapis"];
 
@@ -660,6 +703,8 @@ function rendre(){
   }
 
   contenu.setAttribute("data-vue", vue);
+  contenu.setAttribute("data-col", colonnes);
+  majCommandes();
 
   var liste = filtre === null ? articles : articles.filter(function(a){ return a.categorie === filtre; });
 
@@ -689,10 +734,25 @@ function rendre(){
     return rang.indexOf(x) - rang.indexOf(y);
   });
 
+  var bougeables = noms.filter(function(x){ return x !== SANS_CAT; });
+
   contenu.innerHTML = noms.map(function(n){
-    return '<section class="section">'
-      + '<h2 class="section-titre">' + echapper(n)
-      +   '<span class="section-n">' + groupes[n].length + '</span></h2>'
+    var titre;
+    if (gestion && n !== SANS_CAT){
+      var im = bougeables.indexOf(n);
+      titre = '<h2 class="section-titre section-titre--gestion">'
+        + '<button class="sec-nom" data-cat-renommer="' + echapper(n) + '">' + echapper(n) + '</button>'
+        + '<span class="section-n">' + groupes[n].length + '</span>'
+        + '<span class="sec-actions">'
+        +   '<button class="cat-act" data-cat-monter="' + echapper(n) + '"' + (im === 0 ? ' disabled' : '') + ' aria-label="Monter">↑</button>'
+        +   '<button class="cat-act" data-cat-descendre="' + echapper(n) + '"' + (im === bougeables.length - 1 ? ' disabled' : '') + ' aria-label="Descendre">↓</button>'
+        +   '<button class="cat-act cat-act--danger" data-cat-suppr="' + echapper(n) + '" aria-label="Supprimer">✕</button>'
+        + '</span></h2>';
+    } else {
+      titre = '<h2 class="section-titre">' + echapper(n)
+        + '<span class="section-n">' + groupes[n].length + '</span></h2>';
+    }
+    return '<section class="section">' + titre
       + '<div class="grille">' + groupes[n].map(tuileHTML).join("") + '</div>'
       + '</section>';
   }).join("");
@@ -1066,9 +1126,6 @@ function ouvrirReglages(){
     + '<div class="champ" style="margin-top:16px"><label for="r-qui">Ton prénom</label>'
     +   '<input id="r-qui" type="text" placeholder="Stéphanie" value="' + echapper(qui()) + '"></div>'
     + '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">'
-    + '<p class="aide" style="margin-bottom:10px"><b>Tes catégories.</b> Touche un nom pour le renommer, les flèches pour changer l\'ordre. Supprimer une catégorie ne supprime aucun meuble : ils repassent dans « Sans catégorie ».</p>'
-    + '<div id="r-cats"></div>'
-    + '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">'
     + '<p class="aide"><b>Le signet, sur Mac.</b> Il lit la page depuis ton navigateur, donc il fonctionne même sur les boutiques qui bloquent les robots.</p>'
     + '<p class="aide"><b>Dans Safari, ne fais pas glisser le bouton</b>, Safari abîme le code en le déposant. Copie-le et colle-le à la main :<br>'
     +   '1. Copie le code ci-dessous.<br>'
@@ -1080,60 +1137,6 @@ function ouvrirReglages(){
     + '<p class="aide"><b>Sur iPhone</b>, la recette du raccourci « Partager » est dans le fichier <code>signet.md</code> du projet.</p>'
     + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
   );
-  function majCats(){
-    var zone = v.querySelector("#r-cats");
-    var cats = categories();
-    if (!cats.length){ zone.innerHTML = '<p class="aide">Aucune catégorie pour le moment.</p>'; return; }
-    zone.innerHTML = cats.map(function(c, i){
-      return '<div class="cat-ligne" data-nom="' + echapper(c.nom) + '">'
-        + '<button class="cat-nom" style="border:none;background:none;text-align:left;padding:0" title="Renommer">' + echapper(c.nom) + '</button>'
-        + '<span class="cat-nb">' + c.n + '</span>'
-        + '<button class="cat-act" data-monter aria-label="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
-        + '<button class="cat-act" data-descendre aria-label="Descendre"' + (i === cats.length - 1 ? ' disabled' : '') + '>↓</button>'
-        + '<button class="cat-act cat-act--danger" data-supprimer aria-label="Supprimer">✕</button>'
-        + '</div>';
-    }).join("");
-  }
-
-  function renommerEnLigne(ligne, nom){
-    var cible = ligne.querySelector(".cat-nom");
-    if (!cible) return;
-    var inp = document.createElement("input");
-    inp.type = "text"; inp.value = nom;
-    inp.style.cssText = "flex:1;min-width:0;font-size:14px;padding:5px 8px;border:1px solid var(--n-900);border-radius:7px;background:var(--surface);color:var(--text)";
-    cible.replaceWith(inp);
-    inp.focus(); inp.select();
-    var fait = false;
-    function valider(){
-      if (fait) return; fait = true;
-      var n = inp.value.trim();
-      if (n && n !== nom){
-        Promise.resolve(majCategorie(nom, n)).then(majCats);
-        toast("Renommée en " + n);
-      } else majCats();
-    }
-    inp.addEventListener("keydown", function(e){
-      if (e.key === "Enter"){ e.preventDefault(); valider(); }
-      else if (e.key === "Escape"){ fait = true; majCats(); }
-    });
-    inp.addEventListener("blur", valider);
-  }
-
-  majCats();
-  v.querySelector("#r-cats").addEventListener("click", function(e){
-    var ligne = e.target.closest(".cat-ligne"); if (!ligne) return;
-    var nom = ligne.dataset.nom;
-    if (e.target.closest("[data-monter]"))    { deplacerCategorie(nom, -1); majCats(); return; }
-    if (e.target.closest("[data-descendre]")) { deplacerCategorie(nom,  1); majCats(); return; }
-    if (e.target.closest("[data-supprimer]")){
-      if (!confirm('Supprimer la catégorie « ' + nom + ' » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».')) return;
-      Promise.resolve(majCategorie(nom, null)).then(majCats);
-      toast("Catégorie supprimée");
-      return;
-    }
-    if (e.target.closest(".cat-nom")) renommerEnLigne(ligne, nom);
-  });
-
   var code = codeSignet();
   v.querySelector("#r-code").value = code;
   v.querySelector("#r-signet").setAttribute("href", code);
@@ -1157,6 +1160,62 @@ function ouvrirReglages(){
 /* =================================================================
    9. DÉMARRAGE
    ================================================================= */
+function majCommandes(){
+  var estCat = vue === "cat";
+  $("#seg-col").hidden = !estCat;
+  $("#btn-gerer").hidden = !estCat;
+  Array.prototype.forEach.call($("#seg-col").querySelectorAll("button"), function(x){
+    x.setAttribute("aria-pressed", x.dataset.col === colonnes);
+  });
+}
+
+$("#seg-col").addEventListener("click", function(e){
+  var b = e.target.closest("[data-col]"); if (!b) return;
+  colonnes = b.dataset.col;
+  localStorage.setItem(CLE_COL, colonnes);
+  rendre();
+});
+
+$("#btn-gerer").addEventListener("click", function(){
+  gestion = !gestion;
+  this.classList.toggle("btn--actif", gestion);
+  this.textContent = gestion ? "Terminé" : "Gérer";
+  rendre();
+});
+
+/* Gestion des catégories directement sur les titres de section */
+function renommerSection(bouton, nom){
+  var inp = document.createElement("input");
+  inp.type = "text"; inp.className = "sec-renom"; inp.value = nom;
+  bouton.replaceWith(inp);
+  inp.focus(); inp.select();
+  var fait = false;
+  function valider(){
+    if (fait) return; fait = true;
+    var nv = inp.value.trim();
+    if (nv && nv !== nom){ majCategorie(nom, nv); toast("Renommée en " + nv); }
+    else rendre();
+  }
+  inp.addEventListener("keydown", function(e){
+    if (e.key === "Enter"){ e.preventDefault(); valider(); }
+    else if (e.key === "Escape"){ fait = true; rendre(); }
+  });
+  inp.addEventListener("blur", valider);
+}
+
+$("#contenu").addEventListener("click", function(e){
+  var b = e.target.closest("[data-cat-monter],[data-cat-descendre],[data-cat-suppr],[data-cat-renommer]");
+  if (!b) return;
+  e.preventDefault();
+  if (b.hasAttribute("data-cat-monter"))    return deplacerCategorie(b.dataset.catMonter, -1);
+  if (b.hasAttribute("data-cat-descendre")) return deplacerCategorie(b.dataset.catDescendre, 1);
+  if (b.hasAttribute("data-cat-renommer"))  return renommerSection(b, b.dataset.catRenommer);
+  var n = b.dataset.catSuppr;
+  if (!confirm('Supprimer la catégorie « ' + n + ' » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».')) return;
+  majCategorie(n, null);
+  toast("Catégorie supprimée");
+});
+
 $("#seg-vue").addEventListener("click", function(e){
   var b = e.target.closest("[data-vue]"); if (!b) return;
   vue = b.dataset.vue;
