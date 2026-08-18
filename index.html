@@ -542,8 +542,8 @@ a{color:inherit}
    seulement (rien n'est partagé), ce qui permet de l'essayer tout
    de suite. Stockage : Firestore, via son API REST directe (pas le
    SDK), même principe que le reste de l'app. */
-var FB_PROJECT = "";   // ex: fav-deco-a1b2c
-var FB_API_KEY = "";   // clé API web (Project settings > General)
+var FB_PROJECT = "fav-deco";   // ex: fav-deco-a1b2c
+var FB_API_KEY = "AIzaSyB8vzKEN_U4xQqI2Bpu01eSWnWRdPKeH8c";   // clé API web (Project settings > General)
 
 var COLLECTION = "favoris";
 var CLE_LOCALE = "favdeco:items";
@@ -616,18 +616,37 @@ function echapper(s){
    on en change un jour), seul l'affichage passe par le proxy. */
 function urlAffichage(u){
   if (!u) return u;
-  if (/^data:|^blob:|^https?:\/\/wsrv\.nl\//.test(u)) return u;   // déjà local ou déjà proxifié
+  if (/^data:|^blob:|^https?:\/\/wsrv\.nl\/|^https?:\/\/i0\.wp\.com\//.test(u)) return u;   // déjà local ou déjà proxifié
   return "https://wsrv.nl/?url=" + encodeURIComponent(u) + "&w=640&output=webp";
 }
 
-/* Si la version proxifiée échoue, on affiche directement le repli
-   « indisponible ». PAS de tentative en direct chez le vendeur : ce
-   serait exactement le hotlinking que ce proxy existe pour éviter.
-   Certaines boutiques (Sklum, sur leur variante "-large_default")
-   bloquent le proxy sur une image précise ; dans ce cas la photo manque
-   plutôt que d'être hotlinkée. Le vrai correctif est de corriger l'URL
-   stockée sur la fiche (voir « Modifier la fiche »), pas de hotlinker. */
+/* Second proxy, en repli seulement : certaines boutiques (IKEA, vérifié
+   18/08/2026, bloqué de façon large et pas juste sur une image) renvoient
+   403 à wsrv.nl. i0.wp.com (Jetpack Photon, WordPress/Automattic) passe
+   là où wsrv.nl échoue, vérifié aussi sans régression sur Sklum. On le
+   garde en repli plutôt qu'en principal : wsrv.nl est un service pensé
+   pour ce rôle de proxy public, quand i0.wp.com est un service interne
+   à l'écosystème WordPress détourné de son usage, moins sûr dans la
+   durée. Toujours pas de hotlinking direct si les deux échouent. */
+function urlAffichageRepli(u){
+  var chemin = u.replace(/^https?:\/\//, "");
+  return "https://i0.wp.com/" + chemin + (chemin.indexOf("?") > -1 ? "&" : "?") + "w=640";
+}
+
+/* Si la version proxifiée échoue, on retente une fois via le proxy de
+   repli avant d'afficher « indisponible ». PAS de tentative en direct
+   chez le vendeur au-delà des deux : ce serait exactement le hotlinking
+   que ces proxys existent pour éviter. Certaines boutiques (Sklum, sur
+   leur variante "-large_default") bloquent même le repli sur une image
+   précise ; dans ce cas la photo manque. Le vrai correctif est de
+   corriger l'URL stockée sur la fiche (voir « Modifier la fiche »), pas
+   de hotlinker. */
 function repliImage(img){
+  if (!img.dataset.repli && img.dataset.original) {
+    img.dataset.repli = "1";
+    img.src = urlAffichageRepli(img.dataset.original);
+    return;
+  }
   videMedia(img);
 }
 function videMedia(img, texte){
@@ -891,7 +910,7 @@ function rendreFiltres(){
 function tuileHTML(a, ctx){
   ctx = ctx || {};
   var img = a.image_url
-    ? '<img class="tuile-img" src="' + echapper(urlAffichage(a.image_url)) + '" data-boutique="' + echapper(a.boutique || "") + '" alt="' + echapper(a.titre || "") + '"'
+    ? '<img class="tuile-img" src="' + echapper(urlAffichage(a.image_url)) + '" data-original="' + echapper(a.image_url) + '" data-boutique="' + echapper(a.boutique || "") + '" alt="' + echapper(a.titre || "") + '"'
       + ' loading="lazy" referrerpolicy="no-referrer" onerror="repliImage(this)">'
     : '<div class="tuile-vide"><span>Sans photo</span><strong>' + echapper(a.boutique || "") + '</strong></div>';
 
@@ -1192,7 +1211,7 @@ function ouvrirAjout(data, idEdite){
     var pr = v.querySelector("#f-prix").value;
     z.innerHTML = '<div class="apercu">'
       + (etat.image_url
-          ? '<img src="' + echapper(urlAffichage(etat.image_url)) + '" alt="" referrerpolicy="no-referrer" onerror="repliImage(this)">'
+          ? '<img src="' + echapper(urlAffichage(etat.image_url)) + '" data-original="' + echapper(etat.image_url) + '" alt="" referrerpolicy="no-referrer" onerror="repliImage(this)">'
           : '<div class="apercu-vide">Sans photo</div>')
       + '<div class="apercu-txt"><b>' + echapper(t) + '</b><small>'
       + (pr ? Number(pr).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' € · ' : '')
