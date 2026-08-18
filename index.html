@@ -51,6 +51,8 @@
   --ease:cubic-bezier(.3,.7,.4,1);
 }
 *{box-sizing:border-box}
+/* display:flex sur .actions-feuille écrase la règle UA de [hidden], d'où ce rappel */
+[hidden]{display:none !important}
 html{color-scheme:light;-webkit-text-size-adjust:100%}
 body{
   margin:0;
@@ -124,8 +126,22 @@ a{color:inherit}
 .puce .n{opacity:.55;margin-left:5px;font-variant-numeric:tabular-nums}
 
 /* ---------- Grille en colonnes (hauteurs libres) ---------- */
+#contenu{max-width:1400px;margin:0 auto;padding:6px 16px 80px}
+
+/* Une section par catégorie, empilées verticalement */
+.section{margin-top:28px}
+.section:first-child{margin-top:12px}
+.section-titre{
+  display:flex;align-items:baseline;gap:8px;margin:0 0 12px;
+  font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-muted);
+}
+.section-n{
+  font-size:11px;font-weight:400;color:var(--text-subtle);
+  font-variant-numeric:tabular-nums;letter-spacing:0;
+}
+
 .grille{
-  max-width:1400px;margin:0 auto;padding:18px 16px 80px;
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:var(--gouttiere);align-items:start;
 }
@@ -274,6 +290,15 @@ a{color:inherit}
 .champ input:focus{outline:2px solid var(--n-900);outline-offset:-1px;border-color:transparent}
 
 .cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.cats--grand{gap:8px;margin:2px 0 4px}
+.cats--grand .puce{padding:11px 17px;font-size:15px;border-color:var(--border-strong)}
+.cats--grand .puce:active{transform:scale(.96)}
+.puce--autre{border-style:dashed;color:var(--text-subtle)}
+.lien-details{
+  display:inline-block;margin-top:14px;background:none;border:none;padding:4px 0;
+  font-size:13px;color:var(--text-subtle);text-decoration:underline;text-underline-offset:3px;
+}
+.lien-details:hover{color:var(--text)}
 .actions-feuille{display:flex;gap:8px;margin-top:18px}
 .actions-feuille .btn{flex:1;justify-content:center;text-align:center;padding:11px}
 
@@ -345,7 +370,7 @@ a{color:inherit}
   <div class="filtres" id="filtres"></div>
 </header>
 
-<main class="grille" id="grille"></main>
+<main id="contenu"></main>
 
 <script>
 (function(){
@@ -381,7 +406,7 @@ var popOuvert = null;
 var CATS_BASE = ["Canapé","Table","Chaise","Luminaire","Rangement","Lit","Déco","Tapis"];
 
 var $ = function(s){ return document.querySelector(s); };
-var grille = $("#grille"), zoneFiltres = $("#filtres"), zoneCompte = $("#compte");
+var contenu = $("#contenu"), zoneFiltres = $("#filtres"), zoneCompte = $("#compte");
 
 function echapper(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -472,7 +497,7 @@ function modifier(id, patch){
 function categories(){
   var vues = {};
   articles.forEach(function(a){ if (a.categorie) vues[a.categorie] = (vues[a.categorie] || 0) + 1; });
-  return Object.keys(vues).sort(function(x,y){ return vues[y] - vues[x] || x.localeCompare(y,"fr"); })
+  return Object.keys(vues).sort(function(x,y){ return x.localeCompare(y,"fr"); })
     .map(function(c){ return { nom:c, n:vues[c] }; });
 }
 
@@ -487,48 +512,76 @@ function rendreFiltres(){
   zoneFiltres.innerHTML = cats.length ? h : "";
 }
 
+function tuileHTML(a){
+  var img = a.image_url
+    ? '<img class="tuile-img" src="' + echapper(a.image_url) + '" alt="' + echapper(a.titre || "") + '"'
+      + ' loading="lazy" referrerpolicy="no-referrer"'
+      + ' onerror="this.parentNode.innerHTML=\'<div class=&quot;tuile-vide&quot;><span>Photo indisponible</span><strong>'
+      + echapper((a.boutique || "").replace(/'/g, "")) + '</strong></div>\'">'
+    : '<div class="tuile-vide"><span>Sans photo</span><strong>' + echapper(a.boutique || "") + '</strong></div>';
+
+  var prix = (a.prix != null && a.prix !== "")
+    ? '<span class="tuile-prix">' + Number(a.prix).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' €</span><span class="tuile-sep">·</span>'
+    : "";
+
+  var init = a.ajoute_par ? '<span class="tuile-qui" title="Ajouté par ' + echapper(a.ajoute_par) + '">'
+    + echapper(a.ajoute_par.trim().charAt(0).toUpperCase()) + '</span>' : "";
+
+  return '<article class="tuile" data-id="' + echapper(a.id) + '">'
+    + '<a class="tuile-lien" href="' + echapper(a.url) + '" target="_blank" rel="noopener noreferrer">'
+    +   '<div class="tuile-media">' + img + '</div></a>'
+    + '<button class="tuile-menu" data-menu="' + echapper(a.id) + '" aria-label="Options">···</button>'
+    + '<div class="tuile-info">'
+    +   '<p class="tuile-titre">' + echapper(a.titre || a.url) + '</p>'
+    +   '<div class="tuile-meta">' + prix
+    +     '<span class="tuile-boutique">' + echapper(a.boutique || "") + '</span>' + init
+    +   '</div>'
+    + '</div></article>';
+}
+
+var SANS_CAT = "Sans catégorie";
+
 function rendre(){
   rendreFiltres();
   zoneCompte.textContent = articles.length ? articles.length + (articles.length > 1 ? " trouvailles" : " trouvaille") : "";
 
-  var liste = filtre === null ? articles : articles.filter(function(a){ return a.categorie === filtre; });
-
-  if (!liste.length){
-    grille.innerHTML = '<div class="vide">'
-      + (articles.length
-          ? '<h2>Rien dans « ' + echapper(filtre) + ' »</h2><p>Cette catégorie est vide pour le moment.</p>'
-          : '<h2>Rien pour l\'instant</h2><p>Ajoute un premier meuble en collant son lien, ou installe le signet pour l\'attraper en un clic depuis la boutique.</p>'
-            + '<button class="btn btn--primaire" data-action="ajouter">Coller un lien</button>'
-            + '<p class="aide" style="margin-top:18px">La plupart des boutiques bloquent la lecture automatique d\'un lien collé. Pour tout récupérer en un clic, installe le signet depuis <b>Réglages</b>.</p>')
+  if (!articles.length){
+    contenu.innerHTML = '<div class="vide">'
+      + '<h2>Rien pour l\'instant</h2>'
+      + '<p>Ajoute un premier meuble en collant son lien, ou installe le signet pour l\'attraper en un clic depuis la boutique.</p>'
+      + '<button class="btn btn--primaire" data-action="ajouter">Coller un lien</button>'
+      + '<p class="aide" style="margin-top:18px">La plupart des boutiques bloquent la lecture automatique d\'un lien collé. Pour tout récupérer en un clic, installe le signet depuis <b>Réglages</b>.</p>'
       + '</div>';
     return;
   }
 
-  grille.innerHTML = liste.map(function(a){
-    var img = a.image_url
-      ? '<img class="tuile-img" src="' + echapper(a.image_url) + '" alt="' + echapper(a.titre || "") + '"'
-        + ' loading="lazy" referrerpolicy="no-referrer"'
-        + ' onerror="this.parentNode.innerHTML=\'<div class=&quot;tuile-vide&quot;><span>Photo indisponible</span><strong>'
-        + echapper((a.boutique || "").replace(/'/g, "")) + '</strong></div>\'">'
-      : '<div class="tuile-vide"><span>Sans photo</span><strong>' + echapper(a.boutique || "") + '</strong></div>';
+  // Regroupement par catégorie
+  var groupes = {};
+  articles.forEach(function(a){
+    var c = a.categorie || SANS_CAT;
+    (groupes[c] = groupes[c] || []).push(a);
+  });
 
-    var prix = (a.prix != null && a.prix !== "")
-      ? '<span class="tuile-prix">' + Number(a.prix).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' €</span><span class="tuile-sep">·</span>'
-      : "";
+  var noms = Object.keys(groupes).sort(function(x, y){
+    if (x === SANS_CAT) return 1;          // toujours en dernier
+    if (y === SANS_CAT) return -1;
+    return x.localeCompare(y, "fr");
+  });
 
-    var init = a.ajoute_par ? '<span class="tuile-qui" title="Ajouté par ' + echapper(a.ajoute_par) + '">'
-      + echapper(a.ajoute_par.trim().charAt(0).toUpperCase()) + '</span>' : "";
+  if (filtre !== null) noms = noms.filter(function(n){ return n === filtre; });
 
-    return '<article class="tuile" data-id="' + echapper(a.id) + '">'
-      + '<a class="tuile-lien" href="' + echapper(a.url) + '" target="_blank" rel="noopener noreferrer">'
-      +   '<div class="tuile-media">' + img + '</div></a>'
-      + '<button class="tuile-menu" data-menu="' + echapper(a.id) + '" aria-label="Options">···</button>'
-      + '<div class="tuile-info">'
-      +   '<p class="tuile-titre">' + echapper(a.titre || a.url) + '</p>'
-      +   '<div class="tuile-meta">' + prix
-      +     '<span class="tuile-boutique">' + echapper(a.boutique || "") + '</span>' + init
-      +   '</div>'
-      + '</div></article>';
+  if (!noms.length){
+    contenu.innerHTML = '<div class="vide"><h2>Rien dans « ' + echapper(filtre) + ' »</h2>'
+      + '<p>Cette catégorie est vide pour le moment.</p></div>';
+    return;
+  }
+
+  contenu.innerHTML = noms.map(function(n){
+    return '<section class="section">'
+      + '<h2 class="section-titre">' + echapper(n)
+      +   '<span class="section-n">' + groupes[n].length + '</span></h2>'
+      + '<div class="grille">' + groupes[n].map(tuileHTML).join("") + '</div>'
+      + '</section>';
   }).join("");
 }
 
@@ -577,7 +630,7 @@ document.addEventListener("click", function(e){
   }
   if (e.target.closest('[data-action="ajouter"]')) ouvrirAjout(null);
 });
-document.addEventListener("keydown", function(e){ if (e.key === "Escape") { fermerPop(); fermerFeuille(); } });
+document.addEventListener("keydown", function(e){ if (e.key === "Escape") { fermerPop(); if (!feuillePersistante) fermerFeuille(); } });
 
 /* =================================================================
    6. EXTRACTION DES DONNÉES PRODUIT
@@ -670,12 +723,14 @@ function enrichir(url){
 var feuilleOuverte = null;
 function fermerFeuille(){ if (feuilleOuverte) { feuilleOuverte.remove(); feuilleOuverte = null; } }
 
-function ouvrirVoile(html){
+var feuillePersistante = false;
+function ouvrirVoile(html, persistant){
   fermerFeuille();
+  feuillePersistante = !!persistant;
   var v = document.createElement("div");
   v.className = "voile";
   v.innerHTML = '<div class="feuille">' + html + '</div>';
-  v.addEventListener("click", function(e){ if (e.target === v) fermerFeuille(); });
+  if (!persistant) v.addEventListener("click", function(e){ if (e.target === v) fermerFeuille(); });
   document.body.appendChild(v);
   feuilleOuverte = v;
   return v;
@@ -683,61 +738,126 @@ function ouvrirVoile(html){
 
 function ouvrirAjout(data){
   var d = data || { url:"", titre:"", image_url:"", prix:null, boutique:"" };
+  // Venu du signet avec tout ce qu'il faut : on ne demande que la catégorie.
+  var complet = !!(d.url && d.titre);
   var cats = categories().map(function(c){ return c.nom; });
   CATS_BASE.forEach(function(c){ if (cats.indexOf(c) < 0) cats.push(c); });
 
   var v = ouvrirVoile(
-      '<div class="feuille-tete"><h2>Ajouter</h2>'
+      '<div class="feuille-tete"><h2>' + (complet ? "Ranger dans" : "Ajouter") + '</h2>'
     + '<button class="btn btn--fantome" data-fermer>×</button></div>'
     + '<div id="zone-apercu"></div>'
-    + '<div class="champ" id="champ-url"><label for="f-url">Lien du produit</label>'
-    +   '<input id="f-url" type="url" inputmode="url" placeholder="Colle le lien ici" value="' + echapper(d.url) + '"></div>'
-    + '<div class="champ"><label for="f-titre">Nom</label>'
-    +   '<input id="f-titre" type="text" placeholder="Nom du meuble" value="' + echapper(d.titre) + '"></div>'
-    + '<div class="champ"><label for="f-image">Photo (lien de l\'image)</label>'
-    +   '<input id="f-image" type="url" inputmode="url" placeholder="Clic droit sur la photo &gt; Copier l\'adresse de l\'image" value="' + echapper(d.image_url || "") + '"></div>'
-    + '<div class="champ"><label for="f-prix">Prix (facultatif)</label>'
-    +   '<input id="f-prix" type="number" inputmode="decimal" step="0.01" placeholder="—" value="' + (d.prix != null ? echapper(d.prix) : "") + '"></div>'
-    + '<div class="champ"><label>Catégorie</label><div class="cats" id="f-cats">'
+    + '<div class="cats cats--grand" id="f-cats">'
     +   cats.map(function(c){ return '<button type="button" class="puce" data-choix="' + echapper(c) + '">' + echapper(c) + '</button>'; }).join("")
-    +   '</div><input id="f-cat" type="text" placeholder="ou tape une autre catégorie"></div>'
-    + '<div class="champ"><label for="f-qui">Qui ajoute</label>'
-    +   '<input id="f-qui" type="text" placeholder="Ton prénom" value="' + echapper(qui()) + '"></div>'
-    + '<div class="actions-feuille">'
+    +   '<button type="button" class="puce puce--autre" id="f-autre">+ Autre</button>'
+    + '</div>'
+    + '<div class="champ" id="champ-cat"' + (complet ? ' hidden' : '') + '>'
+    +   '<input id="f-cat" type="text" placeholder="ou tape une autre catégorie" value="' + echapper(d.categorie || "") + '"></div>'
+    + '<div id="details"' + (complet ? ' hidden' : '') + '>'
+    +   '<div class="champ"><label for="f-url">Lien du produit</label>'
+    +     '<input id="f-url" type="url" inputmode="url" placeholder="Colle le lien ici" value="' + echapper(d.url) + '"></div>'
+    +   '<div class="champ"><label for="f-titre">Nom</label>'
+    +     '<input id="f-titre" type="text" placeholder="Nom du meuble" value="' + echapper(d.titre) + '"></div>'
+    +   '<div class="champ"><label for="f-image">Photo (lien de l\'image)</label>'
+    +     '<input id="f-image" type="url" inputmode="url" placeholder="Clic droit sur la photo &gt; Copier l\'adresse de l\'image" value="' + echapper(d.image_url || "") + '"></div>'
+    +   '<div class="champ"><label for="f-prix">Prix (facultatif)</label>'
+    +     '<input id="f-prix" type="number" inputmode="decimal" step="0.01" placeholder="—" value="' + (d.prix != null ? echapper(d.prix) : "") + '"></div>'
+    + '</div>'
+    + (complet ? '<button class="lien-details" id="f-plus">Modifier les détails</button>' : '')
+    + '<div class="actions-feuille" id="f-actions"' + (complet ? ' hidden' : '') + '>'
     +   '<button class="btn" data-fermer>Annuler</button>'
     +   '<button class="btn btn--primaire" id="f-ok">Enregistrer</button>'
     + '</div>'
   );
 
   var etat = { image_url: d.image_url || "", boutique: d.boutique || "" };
+  function reduit(){ return complet && v.querySelector("#details").hasAttribute("hidden"); }
 
   function majApercu(){
     var z = v.querySelector("#zone-apercu");
     var t = v.querySelector("#f-titre").value || "Sans nom";
+    var pr = v.querySelector("#f-prix").value;
     z.innerHTML = '<div class="apercu">'
       + (etat.image_url
           ? '<img src="' + echapper(etat.image_url) + '" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;apercu-vide&quot;>Photo<br>indisponible</div>\'">'
           : '<div class="apercu-vide">Sans photo</div>')
-      + '<div class="apercu-txt"><b>' + echapper(t) + '</b><small>' + echapper(etat.boutique || "—") + '</small></div></div>';
+      + '<div class="apercu-txt"><b>' + echapper(t) + '</b><small>'
+      + (pr ? Number(pr).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' € · ' : '')
+      + echapper(etat.boutique || "—") + '</small></div></div>';
   }
   majApercu();
   v.querySelector("#f-titre").addEventListener("input", majApercu);
+  v.querySelector("#f-prix").addEventListener("input", majApercu);
   v.querySelector("#f-image").addEventListener("input", function(){
     etat.image_url = this.value.trim(); majApercu();
   });
 
-  // Enrichissement automatique quand on colle une URL sans données
+  function toutMontrer(){
+    v.querySelector("#details").removeAttribute("hidden");
+    v.querySelector("#champ-cat").removeAttribute("hidden");
+    v.querySelector("#f-actions").removeAttribute("hidden");
+    var l = v.querySelector("#f-plus"); if (l) l.remove();
+  }
+
+  function enregistrer(cat){
+    var url = v.querySelector("#f-url").value.trim();
+    if (!url) { toast("Il faut au moins un lien", true); toutMontrer(); v.querySelector("#f-url").focus(); return; }
+    var prixBrut = v.querySelector("#f-prix").value;
+    var btn = v.querySelector("#f-ok");
+    if (btn) { btn.disabled = true; btn.textContent = "…"; }
+    ajouter({
+      url: url,
+      titre: v.querySelector("#f-titre").value.trim(),
+      image_url: (v.querySelector("#f-image").value.trim() || etat.image_url) || null,
+      prix: prixBrut === "" ? null : parseFloat(prixBrut),
+      boutique: etat.boutique || null,
+      categorie: cat || null,
+      ajoute_par: qui() || null
+    }).then(function(){
+      fermerFeuille();
+      toast(cat ? "Rangé dans " + cat : "Ajouté");
+    }).catch(function(e){
+      if (btn) { btn.disabled = false; btn.textContent = "Enregistrer"; }
+      toast("Échec : " + e.message, true);
+    });
+  }
+
+  // Une pastille = un rangement immédiat quand tout est déjà rempli
+  v.querySelector("#f-cats").addEventListener("click", function(e){
+    if (e.target.closest("#f-autre")){
+      v.querySelector("#champ-cat").removeAttribute("hidden");
+      v.querySelector("#f-cat").focus();
+      return;
+    }
+    var b = e.target.closest("[data-choix]"); if (!b) return;
+    if (reduit()) { enregistrer(b.dataset.choix); return; }
+    v.querySelector("#f-cat").value = b.dataset.choix;
+    Array.prototype.forEach.call(v.querySelectorAll("#f-cats .puce"), function(p){ p.setAttribute("aria-pressed", p === b); });
+  });
+
+  v.querySelector("#f-cat").addEventListener("keydown", function(e){
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    enregistrer(this.value.trim());
+  });
+
+  var plus = v.querySelector("#f-plus");
+  if (plus) plus.addEventListener("click", toutMontrer);
+
+  var ok = v.querySelector("#f-ok");
+  if (ok) ok.addEventListener("click", function(){ enregistrer(v.querySelector("#f-cat").value.trim()); });
+
+  // Enrichissement quand on colle une URL à la main
   var champUrl = v.querySelector("#f-url");
   var derniere = "";
   function tenterEnrichir(){
     var u = champUrl.value.trim();
     if (!u || u === derniere || !/^https?:\/\//.test(u)) return;
     derniere = u;
-    if (v.querySelector("#f-titre").value) return;   // déjà rempli par le signet
+    if (v.querySelector("#f-titre").value) return;
     etat.boutique = (function(){ try { return new URL(u).hostname.replace(/^www\./,""); } catch(e){ return ""; } })();
     majApercu();
-    var z = v.querySelector("#zone-apercu");
-    z.insertAdjacentHTML("beforeend", '<p class="aide" id="en-cours">Recherche de la photo…</p>');
+    v.querySelector("#zone-apercu").insertAdjacentHTML("beforeend", '<p class="aide">Recherche de la photo…</p>');
     enrichir(u).then(function(r){
       if (r.titre) v.querySelector("#f-titre").value = r.titre;
       if (r.image_url) { etat.image_url = r.image_url; v.querySelector("#f-image").value = r.image_url; }
@@ -746,47 +866,40 @@ function ouvrirAjout(data){
     }).catch(function(){
       majApercu();
       v.querySelector("#zone-apercu").insertAdjacentHTML("beforeend",
-        '<p class="aide"><b>Cette boutique bloque la lecture automatique.</b> IKEA, La Redoute et Kave Home sont dans ce cas. Le signet, lui, lit la page depuis ton navigateur et récupère tout d\'un coup : installe-le depuis Réglages. Sinon, remplis le nom et la photo à la main ci-dessous.</p>');
+        '<p class="aide"><b>Cette boutique bloque la lecture automatique.</b> IKEA, La Redoute et Kave Home sont dans ce cas. Le signet, lui, lit la page depuis ton navigateur et récupère tout d\'un coup : installe-le depuis Réglages. Sinon, remplis le nom et la photo à la main.</p>');
     });
   }
   champUrl.addEventListener("change", tenterEnrichir);
   champUrl.addEventListener("paste", function(){ setTimeout(tenterEnrichir, 60); });
 
-  v.querySelector("#f-cats").addEventListener("click", function(e){
-    var b = e.target.closest("[data-choix]"); if (!b) return;
-    v.querySelector("#f-cat").value = b.dataset.choix;
-    Array.prototype.forEach.call(v.querySelectorAll("#f-cats .puce"), function(p){ p.setAttribute("aria-pressed", p === b); });
-  });
-
-  if (d.categorie) v.querySelector("#f-cat").value = d.categorie;
-
   v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
 
-  v.querySelector("#f-ok").addEventListener("click", function(){
-    var url = champUrl.value.trim();
-    if (!url) { toast("Il faut au moins un lien", true); champUrl.focus(); return; }
-    var nom = v.querySelector("#f-qui").value.trim();
-    if (nom) localStorage.setItem(CLE_QUI, nom);
-    var prixBrut = v.querySelector("#f-prix").value;
-    var btn = v.querySelector("#f-ok");
-    btn.disabled = true; btn.textContent = "…";
-    ajouter({
-      url: url,
-      titre: v.querySelector("#f-titre").value.trim(),
-      image_url: (v.querySelector("#f-image").value.trim() || etat.image_url) || null,
-      prix: prixBrut === "" ? null : parseFloat(prixBrut),
-      boutique: etat.boutique || null,
-      categorie: v.querySelector("#f-cat").value.trim() || null,
-      ajoute_par: nom || null
-    }).then(function(){
-      fermerFeuille(); toast("Ajouté");
-    }).catch(function(e){
-      btn.disabled = false; btn.textContent = "Enregistrer";
-      toast("Échec : " + e.message, true);
-    });
-  });
-
   if (!d.url) setTimeout(function(){ champUrl.focus(); }, 120);
+}
+
+/* Demandé une seule fois, au tout premier lancement, sur chaque appareil. */
+function demanderPrenom(){
+  return new Promise(function(resolve){
+    var v = ouvrirVoile(
+        '<div class="feuille-tete"><h2>Bienvenue</h2></div>'
+      + '<p class="aide" style="margin-bottom:16px">Ton prénom sera associé automatiquement aux meubles que tu ajoutes, pour savoir qui a repéré quoi. On ne te le redemandera plus.</p>'
+      + '<div class="champ"><label for="w-qui">Ton prénom</label>'
+      +   '<input id="w-qui" type="text" placeholder="Stéphanie" autocomplete="given-name"></div>'
+      + '<div class="actions-feuille"><button class="btn btn--primaire" id="w-ok">C\'est parti</button></div>',
+      true
+    );
+    var champ = v.querySelector("#w-qui");
+    setTimeout(function(){ champ.focus(); }, 160);
+    function valider(){
+      var n = champ.value.trim();
+      if (!n) { toast("Dis-moi ton prénom", true); champ.focus(); return; }
+      localStorage.setItem(CLE_QUI, n);
+      feuillePersistante = false;
+      fermerFeuille(); rendre(); resolve();
+    }
+    v.querySelector("#w-ok").addEventListener("click", valider);
+    champ.addEventListener("keydown", function(e){ if (e.key === "Enter") valider(); });
+  });
 }
 
 /* =================================================================
@@ -882,7 +995,9 @@ document.addEventListener("visibilitychange", function(){
   if (!document.hidden && partage) charger();
 });
 
-charger().then(lireHash);
+charger()
+  .then(function(){ return qui() ? null : demanderPrenom(); })
+  .then(lireHash);
 addEventListener("hashchange", lireHash);
 
 })();
