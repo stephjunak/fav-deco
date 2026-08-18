@@ -594,19 +594,14 @@ function urlAffichage(u){
   return "https://wsrv.nl/?url=" + encodeURIComponent(u) + "&w=640&output=webp";
 }
 
-/* Certaines boutiques bloquent le proxy sur une variante précise de leur
-   image (constaté sur Sklum : leur format "-large_default" renvoie un
-   403 à wsrv.nl alors qu'un navigateur y accède sans problème), tout en
-   laissant passer un navigateur direct. Plutôt que d'abandonner sur
-   « indisponible » alors que la photo existe bien, on retente une fois
-   en direct avant de renoncer. */
+/* Si la version proxifiée échoue, on affiche directement le repli
+   « indisponible ». PAS de tentative en direct chez le vendeur : ce
+   serait exactement le hotlinking que ce proxy existe pour éviter.
+   Certaines boutiques (Sklum, sur leur variante "-large_default")
+   bloquent le proxy sur une image précise ; dans ce cas la photo manque
+   plutôt que d'être hotlinkée. Le vrai correctif est de corriger l'URL
+   stockée sur la fiche (voir « Modifier la fiche »), pas de hotlinker. */
 function repliImage(img){
-  var reel = img.dataset.reel;
-  if (reel && img.src !== reel){
-    img.onerror = function(){ videMedia(img); };
-    img.src = reel;
-    return;
-  }
   videMedia(img);
 }
 function videMedia(img, texte){
@@ -837,7 +832,7 @@ function rendreFiltres(){
 function tuileHTML(a, ctx){
   ctx = ctx || {};
   var img = a.image_url
-    ? '<img class="tuile-img" src="' + echapper(urlAffichage(a.image_url)) + '" data-reel="' + echapper(a.image_url) + '" data-boutique="' + echapper(a.boutique || "") + '" alt="' + echapper(a.titre || "") + '"'
+    ? '<img class="tuile-img" src="' + echapper(urlAffichage(a.image_url)) + '" data-boutique="' + echapper(a.boutique || "") + '" alt="' + echapper(a.titre || "") + '"'
       + ' loading="lazy" referrerpolicy="no-referrer" onerror="repliImage(this)">'
     : '<div class="tuile-vide"><span>Sans photo</span><strong>' + echapper(a.boutique || "") + '</strong></div>';
 
@@ -1138,7 +1133,7 @@ function ouvrirAjout(data, idEdite){
     var pr = v.querySelector("#f-prix").value;
     z.innerHTML = '<div class="apercu">'
       + (etat.image_url
-          ? '<img src="' + echapper(urlAffichage(etat.image_url)) + '" data-reel="' + echapper(etat.image_url) + '" alt="" referrerpolicy="no-referrer" onerror="repliImage(this)">'
+          ? '<img src="' + echapper(urlAffichage(etat.image_url)) + '" alt="" referrerpolicy="no-referrer" onerror="repliImage(this)">'
           : '<div class="apercu-vide">Sans photo</div>')
       + '<div class="apercu-txt"><b>' + echapper(t) + '</b><small>'
       + (pr ? Number(pr).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' € · ' : '')
