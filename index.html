@@ -141,23 +141,6 @@ a{color:inherit}
 .btn--actif{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
 .btn--actif:hover{background:#332F2A;color:var(--on-primary)}
 
-/* Mode gestion : les commandes apparaissent sur les titres de section */
-.sec-actions{display:inline-flex;gap:0;margin-left:auto;flex:0 0 auto}
-.sec-actions .cat-act{flex:0 0 auto;padding:4px 5px}
-.section-titre--gestion{
-  background:var(--n-200);border-radius:8px;padding:4px 4px 4px 9px;margin-bottom:10px;
-}
-.section-titre--gestion .sec-nom{
-  border:none;background:none;padding:0;font:inherit;color:inherit;
-  letter-spacing:inherit;text-transform:inherit;text-decoration:underline;
-  text-underline-offset:3px;cursor:text;
-  /* doit pouvoir rétrécir, sinon la ligne déborde de la colonne */
-  min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.sec-renom{
-  flex:1;min-width:0;font-size:13px;padding:4px 7px;border:1px solid var(--n-900);
-  border-radius:6px;background:var(--surface);color:var(--text);
-}
 .filtres{
   display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
   flex:1;min-width:0;
@@ -450,15 +433,20 @@ a{color:inherit}
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 .reorg-liste{list-style:none;margin:0;padding:0}
-.reorg-ligne{touch-action:none;user-select:none;-webkit-user-select:none;cursor:default}
+.reorg-ligne{cursor:default}
 .reorg-poignee{
   flex:0 0 auto;font-size:16px;color:var(--text-subtle);cursor:grab;
-  padding:2px 4px;line-height:1;touch-action:none;
+  padding:2px 4px;line-height:1;touch-action:none;user-select:none;-webkit-user-select:none;
 }
 .reorg-drag{
   position:relative;z-index:5;background:var(--n-100);
   box-shadow:0 4px 14px rgba(0,0,0,.12);
 }
+.cat-nom-input{
+  flex:1;min-width:0;font:inherit;font-size:14px;padding:3px 6px;
+  border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text);
+}
+.cat-nom-input:focus{border-color:var(--n-900);background:var(--surface);outline:none}
 .signet-lien{
   display:inline-block;margin:8px 0;padding:9px 16px;border-radius:var(--r-pill);
   background:var(--primary);color:var(--on-primary);text-decoration:none;
@@ -535,8 +523,8 @@ a{color:inherit}
       <button data-col="2" aria-label="Deux colonnes" aria-pressed="true"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="5.6" height="13" rx="1.6"/><rect x="8.4" y="1" width="5.6" height="13" rx="1.6"/></svg></button>
       <button data-col="3" aria-label="Trois colonnes" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="3.4" height="13" rx="1.1"/><rect x="5.8" y="1" width="3.4" height="13" rx="1.1"/><rect x="10.6" y="1" width="3.4" height="13" rx="1.1"/></svg></button>
     </div>
-    <button class="btn btn--fantome btn--petit" id="btn-reorganiser">Réorganiser</button>
-    <button class="btn btn--fantome btn--petit" id="btn-gerer">Gérer</button>
+    <button class="btn btn--fantome btn--petit" id="btn-reorganiser">Gérer les catégories</button>
+    <button class="btn btn--fantome btn--petit" id="btn-gerer">Réorganiser les articles</button>
   </div>
   <div class="barre"><div class="filtres" id="filtres"></div></div>
 </header>
@@ -995,18 +983,10 @@ function rendre(){
   });
 
   contenu.innerHTML = noms.map(function(n){
-    var titre;
-    if (gestion && n !== SANS_CAT){
-      titre = '<h2 class="section-titre section-titre--gestion">'
-        + '<button class="sec-nom" data-cat-renommer="' + echapper(n) + '">' + echapper(n) + '</button>'
-        + '<span class="section-n">' + groupes[n].length + '</span>'
-        + '<span class="sec-actions">'
-        +   '<button class="cat-act cat-act--danger" data-cat-suppr="' + echapper(n) + '" aria-label="Supprimer">✕</button>'
-        + '</span></h2>';
-    } else {
-      titre = '<h2 class="section-titre">' + echapper(n)
-        + '<span class="section-n">' + groupes[n].length + '</span></h2>';
-    }
+    // Renommer/supprimer une catégorie se fait depuis la fenêtre « Gérer les
+    // catégories » (bouton dédié), plus sur les titres de section ici.
+    var titre = '<h2 class="section-titre">' + echapper(n)
+      + '<span class="section-n">' + groupes[n].length + '</span></h2>';
     var membres = triCategorie(groupes[n]);
     return '<section class="section">' + titre
       + '<div class="grille">' + membres.map(function(a, i){
@@ -1479,31 +1459,54 @@ function ouvrirReglages(){
    seule colonne plutôt que dans la grille de vignettes : plus simple à
    suivre (une seule dimension) et plus fiable au doigt qu'un glisser
    dans une grille dont les lignes/colonnes changent selon la largeur. */
+/* Tout ce qui touche une catégorie (ordre, nom, suppression) au même
+   endroit, plutôt qu'éclaté entre la grille et cette fenêtre. */
+function ligneReorgHTML(c){
+  return '<li class="cat-ligne reorg-ligne" data-cat="' + echapper(c.nom) + '">'
+    + '<span class="reorg-poignee" aria-hidden="true">⠿</span>'
+    + '<input class="cat-nom-input" type="text" value="' + echapper(c.nom) + '" aria-label="Renommer ' + echapper(c.nom) + '">'
+    + '<span class="cat-nb">' + c.n + '</span>'
+    + '<button class="cat-act cat-act--danger" data-cat-suppr aria-label="Supprimer ' + echapper(c.nom) + '">✕</button>'
+    + '</li>';
+}
+
 function ouvrirReorganisationCategories(){
-  var cats = categories();
-  if (cats.length < 2) return;
   var v = ouvrirVoile(
-      '<div class="feuille-tete"><h2>Réorganiser les catégories</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
-    + '<p class="aide" style="margin-bottom:10px">Fais glisser une catégorie par sa poignée pour changer son ordre.</p>'
-    + '<ul class="reorg-liste" id="reorg-liste">'
-    + cats.map(function(c){
-        return '<li class="cat-ligne reorg-ligne" data-cat="' + echapper(c.nom) + '">'
-          + '<span class="reorg-poignee" aria-hidden="true">⠿</span>'
-          + '<span class="cat-nom">' + echapper(c.nom) + '</span>'
-          + '<span class="cat-nb">' + c.n + '</span>'
-          + '</li>';
-      }).join("")
-    + '</ul>'
+      '<div class="feuille-tete"><h2>Gérer les catégories</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
+    + '<p class="aide" style="margin-bottom:10px">Glisse la poignée pour changer l\'ordre, touche le nom pour le modifier.</p>'
+    + '<ul class="reorg-liste" id="reorg-liste">' + categories().map(ligneReorgHTML).join("") + '</ul>'
     + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
   );
-  activerGlisserCategories(v.querySelector("#reorg-liste"));
+  var liste = v.querySelector("#reorg-liste");
+
+  function actualiser(){ liste.innerHTML = categories().map(ligneReorgHTML).join(""); }
+
+  liste.addEventListener("change", function(e){
+    var inp = e.target.closest(".cat-nom-input");
+    if (!inp) return;
+    var li = inp.closest("li"), ancien = li.dataset.cat, nouveau = inp.value.trim();
+    if (!nouveau || nouveau === ancien) { inp.value = ancien; return; }
+    majCategorie(ancien, nouveau).then(actualiser);
+  });
+
+  liste.addEventListener("click", function(e){
+    var b = e.target.closest("[data-cat-suppr]");
+    if (!b) return;
+    var li = b.closest("li"), nom = li.dataset.cat;
+    if (!confirm('Supprimer la catégorie « ' + nom + ' » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».')) return;
+    majCategorie(nom, null).then(function(){ toast("Catégorie supprimée"); actualiser(); });
+  });
+
+  activerGlisserCategories(liste);
   v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
 }
 
 /* Glisser-déposer sur une liste à une colonne (Pointer Events : même
    code pour souris et tactile). Le rang glissé suit le doigt/curseur
    librement (transform), les autres lignes se décalent d'une hauteur de
-   ligne complète (H) quand on les dépasse. Ordre commité au relâcher. */
+   ligne complète (H) quand on les dépasse. Ordre commité au relâcher.
+   Écouteurs posés une seule fois sur la liste (délégation) : ils restent
+   valables même après un innerHTML de renommage/suppression. */
 function activerGlisserCategories(liste){
   if (!liste) return;
   var dragging = null, depart = 0, indexDepart = 0, indexAct = 0, H = 0, ordreVisuel = [];
@@ -1562,7 +1565,7 @@ function majCommandes(){
   $("#seg-col").hidden = !estCat;
   $("#btn-gerer").hidden = !estCat;
   $("#btn-reorganiser").hidden = !estCat;
-  $("#btn-reorganiser").disabled = categories().length < 2;
+  $("#btn-reorganiser").disabled = categories().length < 1;
   Array.prototype.forEach.call($("#seg-col").querySelectorAll("button"), function(x){
     x.setAttribute("aria-pressed", x.dataset.col === colonnes);
   });
@@ -1578,47 +1581,18 @@ $("#seg-col").addEventListener("click", function(e){
 $("#btn-gerer").addEventListener("click", function(){
   gestion = !gestion;
   this.classList.toggle("btn--actif", gestion);
-  this.textContent = gestion ? "Terminé" : "Gérer";
+  this.textContent = gestion ? "Terminé" : "Réorganiser les articles";
   rendre();
 });
 
 $("#btn-reorganiser").addEventListener("click", ouvrirReorganisationCategories);
 
-/* Gestion des catégories directement sur les titres de section */
-function renommerSection(bouton, nom){
-  var inp = document.createElement("input");
-  inp.type = "text"; inp.className = "sec-renom"; inp.value = nom;
-  bouton.replaceWith(inp);
-  inp.focus(); inp.select();
-  var fait = false;
-  function valider(){
-    if (fait) return; fait = true;
-    var nv = inp.value.trim();
-    if (nv && nv !== nom){ majCategorie(nom, nv); toast("Renommée en " + nv); }
-    else rendre();
-  }
-  inp.addEventListener("keydown", function(e){
-    if (e.key === "Enter"){ e.preventDefault(); valider(); }
-    else if (e.key === "Escape"){ fait = true; rendre(); }
-  });
-  inp.addEventListener("blur", valider);
-}
-
 $("#contenu").addEventListener("click", function(e){
   var art = e.target.closest("[data-art-monter],[data-art-descendre]");
-  if (art){
-    e.preventDefault();
-    if (art.hasAttribute("data-art-monter")) return deplacerArticle(art.dataset.artMonter, -1);
-    return deplacerArticle(art.dataset.artDescendre, 1);
-  }
-  var b = e.target.closest("[data-cat-suppr],[data-cat-renommer]");
-  if (!b) return;
+  if (!art) return;
   e.preventDefault();
-  if (b.hasAttribute("data-cat-renommer"))  return renommerSection(b, b.dataset.catRenommer);
-  var n = b.dataset.catSuppr;
-  if (!confirm('Supprimer la catégorie « ' + n + ' » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».')) return;
-  majCategorie(n, null);
-  toast("Catégorie supprimée");
+  if (art.hasAttribute("data-art-monter")) return deplacerArticle(art.dataset.artMonter, -1);
+  return deplacerArticle(art.dataset.artDescendre, 1);
 });
 
 $("#seg-vue").addEventListener("click", function(e){

@@ -74,19 +74,11 @@ redéploies ailleurs plus tard.
 
 ## 2. Sur iPhone : le raccourci Partager
 
-L'équivalent du signet, dans le menu Partager de Safari. **Le plus simple : transmettre
-le raccourci déjà fait par AirDrop**, pas besoin de le reconstruire à la main.
+L'équivalent du signet, dans le menu Partager de Safari. Stéphanie l'a déjà créé sur son
+iPhone et le transmet à Frédéric par AirDrop, pas besoin de le reconstruire à la main.
 
-### Recevoir le raccourci par AirDrop (méthode recommandée)
-
-1. Sur l'iPhone qui a déjà le raccourci (Stéphanie), ouvre l'app **Raccourcis**, trouve
-   **Ajouter à la déco**.
-2. Appui long dessus (ou **...** en haut si le raccourci est ouvert) → **Partager** →
-   **AirDrop**, et envoie-le à Frédéric.
-3. Frédéric accepte la réception AirDrop, puis **Ajouter le raccourci** dans l'app
-   Raccourcis qui s'ouvre.
-4. À la première utilisation, iOS demande d'autoriser l'exécution de JavaScript sur la
-   page : il faut accepter, sinon le raccourci ne peut pas lire la page produit.
+> La première fois, iOS demande d'autoriser l'exécution de JavaScript sur la page : il
+> faut accepter, sinon le raccourci ne peut pas lire la page produit.
 
 ### Le créer à la main (si l'AirDrop n'est pas possible)
 
