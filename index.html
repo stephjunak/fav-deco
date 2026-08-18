@@ -557,6 +557,20 @@ function echapper(s){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
   });
 }
+
+/* Affichage des photos via wsrv.nl plutôt qu'en hotlink direct vers le
+   site du vendeur : leur serveur n'est visité qu'une fois, wsrv.nl garde
+   ensuite sa propre copie en cache (CDN Cloudflare) et la ressert à tous
+   les viewers, y compris après un vidage de cache local. Vérifié le
+   18/08/2026 : cf-cache-status passe à HIT dès le 2e appel.
+   On ne stocke JAMAIS l'URL proxifiée : la base garde l'adresse réelle
+   (utile pour l'édition, et pour ne pas dépendre d'un service tiers si
+   on en change un jour), seul l'affichage passe par le proxy. */
+function urlAffichage(u){
+  if (!u) return u;
+  if (/^data:|^blob:|^https?:\/\/wsrv\.nl\//.test(u)) return u;   // déjà local ou déjà proxifié
+  return "https://wsrv.nl/?url=" + encodeURIComponent(u) + "&w=640&output=webp";
+}
 function toast(msg, err){
   var t = document.createElement("div");
   t.className = "toast"; t.textContent = msg;
@@ -701,7 +715,7 @@ function rendreFiltres(){
 
 function tuileHTML(a){
   var img = a.image_url
-    ? '<img class="tuile-img" src="' + echapper(a.image_url) + '" alt="' + echapper(a.titre || "") + '"'
+    ? '<img class="tuile-img" src="' + echapper(urlAffichage(a.image_url)) + '" alt="' + echapper(a.titre || "") + '"'
       + ' loading="lazy" referrerpolicy="no-referrer"'
       + ' onerror="this.parentNode.innerHTML=\'<div class=&quot;tuile-vide&quot;><span>Photo indisponible</span><strong>'
       + echapper((a.boutique || "").replace(/'/g, "")) + '</strong></div>\'">'
@@ -995,7 +1009,7 @@ function ouvrirAjout(data, idEdite){
     var pr = v.querySelector("#f-prix").value;
     z.innerHTML = '<div class="apercu">'
       + (etat.image_url
-          ? '<img src="' + echapper(etat.image_url) + '" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;apercu-vide&quot;>Photo<br>indisponible</div>\'">'
+          ? '<img src="' + echapper(urlAffichage(etat.image_url)) + '" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;apercu-vide&quot;>Photo<br>indisponible</div>\'">'
           : '<div class="apercu-vide">Sans photo</div>')
       + '<div class="apercu-txt"><b>' + echapper(t) + '</b><small>'
       + (pr ? Number(pr).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' € · ' : '')
