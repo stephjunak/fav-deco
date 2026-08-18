@@ -1,0 +1,14 @@
+{
+  "name": "fav-deco",
+  "short_name": "Déco",
+  "description": "Les meubles et objets repérés, rangés par catégorie.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EFEDE8",
+  "theme_color": "#EFEDE8",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

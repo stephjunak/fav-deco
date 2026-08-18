@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>fav-deco</title>
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#EFEDE8">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Déco">
+<style>
+/* ---------------------------------------------------------------
+   fav-deco - favoris meubles partagés
+   Direction : interface de collection d'images (Pinterest / Are.na).
+   L'UI se tait, les photos parlent. Palette achromatique volontaire :
+   la couleur vient des meubles. Fond greige pour détacher les
+   visuels produit, qui sont presque tous shootés sur fond blanc.
+   --------------------------------------------------------------- */
+:root{
+  /* Neutres chauds - 90% de l'interface */
+  --n-0:#FFFFFF;
+  --n-50:#F7F5F1;
+  --n-100:#EFEDE8;
+  --n-200:#E3E0D9;
+  --n-300:#CFCBC2;
+  --n-400:#A8A399;
+  --n-500:#7D7871;
+  --n-600:#5A5650;
+  --n-900:#1C1A17;
+
+  --bg:var(--n-100);
+  --surface:var(--n-0);
+  --text:var(--n-900);
+  --text-muted:var(--n-600);
+  --text-subtle:var(--n-500);
+  --border:var(--n-200);
+  --border-strong:var(--n-300);
+
+  /* Accent = encre. Aucune couleur, pour ne pas concurrencer les photos. */
+  --primary:var(--n-900);
+  --on-primary:var(--n-0);
+
+  --danger:#A8342B;
+
+  --r-img:10px;
+  --r-pill:999px;
+  --gouttiere:14px;
+
+  --ease:cubic-bezier(.3,.7,.4,1);
+}
+*{box-sizing:border-box}
+html{color-scheme:light;-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  font-size:15px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+
+/* ---------- En-tête ---------- */
+.tete{
+  position:sticky;top:0;z-index:20;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(1.6) blur(14px);
+  -webkit-backdrop-filter:saturate(1.6) blur(14px);
+  border-bottom:1px solid transparent;
+  transition:border-color .2s;
+  padding-top:env(safe-area-inset-top);
+}
+.tete[data-colle]{border-bottom-color:var(--border)}
+.tete-haut{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px 10px;
+  max-width:1400px;margin:0 auto;
+}
+.marque{
+  font-size:16px;font-weight:600;letter-spacing:-.02em;margin:0;
+  display:flex;align-items:baseline;gap:8px;
+}
+.compte{
+  font-size:12px;font-weight:400;color:var(--text-subtle);
+  font-variant-numeric:tabular-nums;
+}
+.tete-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+.btn{
+  border:1px solid var(--border-strong);background:var(--surface);
+  border-radius:var(--r-pill);padding:8px 14px;font-size:14px;font-weight:500;
+  transition:background .15s,border-color .15s,transform .1s var(--ease);
+}
+.btn:hover{background:var(--n-50);border-color:var(--n-400)}
+.btn:active{transform:scale(.97)}
+.btn--primaire{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.btn--primaire:hover{background:#332F2A;border-color:#332F2A}
+.btn--fantome{border-color:transparent;background:transparent;color:var(--text-muted);padding:8px 10px}
+.btn--fantome:hover{background:var(--n-200);color:var(--text)}
+.btn--danger{color:var(--danger)}
+
+/* ---------- Filtres ---------- */
+.filtres{
+  display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
+  padding:0 16px 12px;max-width:1400px;margin:0 auto;
+  -webkit-overflow-scrolling:touch;
+}
+.filtres::-webkit-scrollbar{display:none}
+.puce{
+  flex:0 0 auto;border:1px solid var(--border-strong);background:transparent;
+  border-radius:var(--r-pill);padding:6px 13px;font-size:13.5px;white-space:nowrap;
+  color:var(--text-muted);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.puce:hover{border-color:var(--n-400);color:var(--text)}
+.puce[aria-pressed="true"]{
+  background:var(--primary);color:var(--on-primary);border-color:var(--primary);font-weight:500;
+}
+.puce .n{opacity:.55;margin-left:5px;font-variant-numeric:tabular-nums}
+
+/* ---------- Grille en colonnes (hauteurs libres) ---------- */
+.grille{
+  max-width:1400px;margin:0 auto;padding:18px 16px 80px;
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--gouttiere);align-items:start;
+}
+@media(min-width:640px){ .grille{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media(min-width:980px){ :root{--gouttiere:18px} .grille{grid-template-columns:repeat(4,minmax(0,1fr))} }
+@media(min-width:1300px){ .grille{grid-template-columns:repeat(5,minmax(0,1fr))} }
+
+.tuile{
+  position:relative;min-width:0;
+  animation:apparait .3s var(--ease) both;
+}
+
+/* La plaque : ratio fixe, donc la place est réservée avant que la
+   photo n'arrive. Fond blanc parce que les boutiques shootent sur
+   blanc, et contain pour ne jamais recadrer un meuble de travers. */
+.tuile-media{
+  aspect-ratio:4/5;background:var(--surface);border-radius:var(--r-img);
+  overflow:hidden;display:grid;place-items:center;
+}
+@keyframes apparait{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.tuile-lien{display:block;text-decoration:none;position:relative}
+.tuile-img{
+  display:block;width:100%;height:100%;object-fit:contain;padding:7px;
+  transition:filter .25s var(--ease);
+}
+.tuile-lien:hover .tuile-img{filter:brightness(.94)}
+
+/* Repli quand la photo manque ou refuse de se charger */
+.tuile-vide{
+  width:100%;height:100%;background:var(--surface);
+  border:1px dashed var(--border-strong);border-radius:var(--r-img);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px;
+}
+.tuile-vide span{font-size:12px;color:var(--text-subtle);letter-spacing:.06em;text-transform:uppercase}
+.tuile-vide strong{font-size:13px;font-weight:500;color:var(--text-muted)}
+
+.tuile-info{padding:8px 3px 0}
+.tuile-titre{
+  font-size:13.5px;line-height:1.35;margin:0;font-weight:450;
+  text-wrap:pretty;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.tuile-meta{
+  display:flex;align-items:center;gap:6px;margin-top:3px;
+  font-size:12px;color:var(--text-subtle);
+}
+.tuile-prix{font-weight:600;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.tuile-sep{opacity:.4}
+.tuile-boutique{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tuile-qui{
+  margin-left:auto;flex:0 0 auto;width:17px;height:17px;border-radius:50%;
+  display:grid;place-items:center;font-size:9.5px;font-weight:600;
+  background:var(--n-200);color:var(--text-muted);letter-spacing:0;
+}
+
+/* Menu de tuile */
+.tuile-menu{
+  position:absolute;top:7px;right:7px;
+  width:28px;height:28px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.92);color:var(--n-900);
+  display:grid;place-items:center;font-size:15px;line-height:1;
+  box-shadow:0 1px 4px rgba(0,0,0,.16);
+  opacity:0;transition:opacity .18s;
+}
+.tuile:hover .tuile-menu,.tuile-menu:focus-visible,.tuile-menu[data-ouvert]{opacity:1}
+@media(hover:none){ .tuile-menu{opacity:.9} }
+
+.pop{
+  position:absolute;top:38px;right:7px;z-index:12;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 8px 26px rgba(0,0,0,.14);padding:5px;min-width:172px;
+  animation:apparait .14s var(--ease) both;
+}
+.pop button{
+  display:block;width:100%;text-align:left;border:none;background:none;
+  padding:8px 10px;border-radius:8px;font-size:13.5px;
+}
+.pop button:hover{background:var(--n-100)}
+.pop hr{border:none;border-top:1px solid var(--border);margin:4px 2px}
+.pop-titre{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-subtle);padding:6px 10px 3px;
+}
+
+/* ---------- État vide ---------- */
+.vide{
+  grid-column:1/-1;text-align:center;padding:70px 24px;max-width:420px;margin:0 auto;
+}
+.vide h2{font-size:17px;font-weight:600;margin:0 0 8px}
+.vide p{color:var(--text-muted);font-size:14px;margin:0 0 20px;text-wrap:pretty}
+
+/* ---------- Panneau (feuille mobile / dialogue bureau) ---------- */
+.voile{
+  position:fixed;inset:0;z-index:50;background:rgba(28,26,23,.32);
+  display:flex;align-items:flex-end;justify-content:center;
+  animation:fondu .18s ease both;
+  backdrop-filter:blur(2px);
+}
+@keyframes fondu{from{opacity:0}to{opacity:1}}
+@media(min-width:640px){ .voile{align-items:center;padding:24px} }
+
+.feuille{
+  background:var(--bg);width:100%;max-width:440px;
+  border-radius:18px 18px 0 0;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+  max-height:92vh;overflow-y:auto;
+  animation:monte .26s var(--ease) both;
+}
+@keyframes monte{from{transform:translateY(16px);opacity:.6}to{transform:none;opacity:1}}
+@media(min-width:640px){
+  .feuille{border-radius:16px;animation-name:apparait}
+}
+.feuille-tete{display:flex;align-items:center;margin-bottom:14px}
+.feuille-tete h2{font-size:16px;font-weight:600;margin:0}
+.feuille-tete .btn--fantome{margin-left:auto;font-size:20px;line-height:1;padding:2px 8px}
+
+.apercu{
+  display:flex;gap:12px;margin-bottom:16px;padding:10px;
+  background:var(--surface);border-radius:12px;border:1px solid var(--border);
+}
+.apercu img{
+  width:78px;height:78px;object-fit:contain;border-radius:8px;flex:0 0 auto;
+  background:var(--n-50);
+}
+.apercu-vide{
+  width:78px;height:78px;border-radius:8px;flex:0 0 auto;background:var(--n-100);
+  border:1px dashed var(--border-strong);display:grid;place-items:center;
+  font-size:10px;color:var(--text-subtle);text-align:center;padding:4px;
+}
+.apercu-txt{min-width:0;flex:1;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.apercu-txt b{font-size:13.5px;font-weight:500;line-height:1.3}
+.apercu-txt small{font-size:12px;color:var(--text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.champ{margin-bottom:13px}
+.champ label{
+  display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-subtle);margin-bottom:5px;font-weight:600;
+}
+.champ input{
+  width:100%;padding:10px 12px;font-size:16px; /* 16px = pas de zoom auto iOS */
+  border:1px solid var(--border-strong);border-radius:10px;
+  background:var(--surface);color:var(--text);
+}
+.champ input:focus{outline:2px solid var(--n-900);outline-offset:-1px;border-color:transparent}
+
+.cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.actions-feuille{display:flex;gap:8px;margin-top:18px}
+.actions-feuille .btn{flex:1;justify-content:center;text-align:center;padding:11px}
+
+.aide{font-size:12px;color:var(--text-subtle);line-height:1.5;text-wrap:pretty}
+.aide code{
+  background:var(--n-200);padding:1px 5px;border-radius:4px;font-size:11.5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+.signet-lien{
+  display:inline-block;margin:8px 0;padding:9px 16px;border-radius:var(--r-pill);
+  background:var(--primary);color:var(--on-primary);text-decoration:none;
+  font-size:14px;font-weight:500;cursor:grab;
+}
+
+/* ---------- Bandeau d'état ---------- */
+.toast{
+  position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);z-index:80;
+  background:var(--n-900);color:var(--n-0);
+  padding:10px 18px;border-radius:var(--r-pill);font-size:13.5px;
+  box-shadow:0 6px 22px rgba(0,0,0,.24);
+  animation:apparait .2s var(--ease) both;
+  max-width:calc(100vw - 32px);text-align:center;
+}
+.toast[data-err]{background:var(--danger)}
+
+.alerte{
+  max-width:1400px;margin:0 auto;padding:11px 16px;
+  background:#FDF3E3;border:1px solid #E8D5AE;border-radius:12px;
+  font-size:13px;color:#6B4E17;margin-bottom:4px;
+}
+.alerte b{font-weight:600}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+<script>
+/* Icône d'écran d'accueil iPhone : iOS n'accepte pas le SVG pour
+   apple-touch-icon, on la dessine donc au chargement (même astuce que
+   Suivi ventes Vinted). Reprend le motif de icon.svg. */
+(function(){
+  try{
+    var T=180,c=document.createElement("canvas");c.width=c.height=T;
+    var x=c.getContext("2d"),k=T/512;
+    function rr(a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
+      x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();x.fill();}
+    x.fillStyle="#1C1A17";rr(0,0,T,T,112*k);
+    x.fillStyle="#EFEDE8";
+    [[112,112,130,170],[270,112,130,106],[112,310,130,90],[270,246,130,154]]
+      .forEach(function(t){rr(t[0]*k,t[1]*k,t[2]*k,t[3]*k,16*k)});
+    var l=document.createElement("link");
+    l.rel="apple-touch-icon";l.href=c.toDataURL("image/png");
+    document.head.appendChild(l);
+  }catch(e){}
+})();
+</script>
+</head>
+<body>
+
+<header class="tete" id="tete">
+  <div class="tete-haut">
+    <h1 class="marque">fav-deco <span class="compte" id="compte"></span></h1>
+    <div class="tete-actions">
+      <button class="btn btn--fantome" id="btn-reglages" title="Réglages et signet">Réglages</button>
+      <button class="btn btn--primaire" id="btn-ajouter">Ajouter</button>
+    </div>
+  </div>
+  <div class="filtres" id="filtres"></div>
+</header>
+
+<main class="grille" id="grille"></main>
+
+<script>
+(function(){
+"use strict";
+
+/* =================================================================
+   1. CONFIGURATION
+   Renseigne ces deux valeurs après avoir créé le projet Supabase.
+   Tant qu'elles sont vides, l'app tourne en local sur cet appareil
+   seulement (rien n'est partagé), ce qui permet de l'essayer tout
+   de suite.
+   ================================================================= */
+var SB_URL = "";   // ex: https://xxxxxxxx.supabase.co/rest/v1
+var SB_KEY = "";   // clé anon (publishable)
+
+var TABLE  = "favoris";
+var CLE_LOCALE = "favdeco:items";
+var CLE_QUI    = "favdeco:qui";
+
+var partage = !!(SB_URL && SB_KEY);
+var entetes = {
+  "apikey": SB_KEY,
+  "Authorization": "Bearer " + SB_KEY,
+  "Content-Type": "application/json"
+};
+
+/* =================================================================
+   2. ÉTAT
+   ================================================================= */
+var articles = [];
+var filtre = null;          // null = tout
+var popOuvert = null;
+var CATS_BASE = ["Canapé","Table","Chaise","Luminaire","Rangement","Lit","Déco","Tapis"];
+
+var $ = function(s){ return document.querySelector(s); };
+var grille = $("#grille"), zoneFiltres = $("#filtres"), zoneCompte = $("#compte");
+
+function echapper(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function toast(msg, err){
+  var t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  if (err) t.setAttribute("data-err","");
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, err ? 4200 : 2100);
+}
+function qui(){ return localStorage.getItem(CLE_QUI) || ""; }
+
+/* =================================================================
+   3. STOCKAGE  (Supabase REST, ou localStorage si non configuré)
+   ================================================================= */
+function lireLocal(){
+  try { return JSON.parse(localStorage.getItem(CLE_LOCALE) || "[]"); }
+  catch(e){ return []; }
+}
+function ecrireLocal(a){ localStorage.setItem(CLE_LOCALE, JSON.stringify(a)); }
+
+function charger(){
+  if (!partage) { articles = lireLocal(); rendre(); return Promise.resolve(); }
+  return fetch(SB_URL + "/" + TABLE + "?supprime=eq.false&select=*&order=cree_le.desc", { headers: entetes })
+    .then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function(data){
+      // Garde-fou repris de vinted-search : ne jamais remplacer un
+      // affichage rempli par une réponse vide (incident du 01/07/2026).
+      if ((!data || !data.length) && articles.length) {
+        console.warn("Réponse vide ignorée, l'affichage est conservé.");
+        return;
+      }
+      articles = data || [];
+      rendre();
+    })
+    .catch(function(e){
+      console.error(e);
+      if (!articles.length) toast("Connexion impossible : " + e.message, true);
+    });
+}
+
+function ajouter(obj){
+  obj.cree_le = new Date().toISOString();
+  obj.supprime = false;
+  if (!partage) {
+    obj.id = Date.now();
+    articles.unshift(obj); ecrireLocal(articles); rendre();
+    return Promise.resolve();
+  }
+  return fetch(SB_URL + "/" + TABLE, {
+    method: "POST",
+    headers: Object.assign({}, entetes, { "Prefer": "return=representation" }),
+    body: JSON.stringify(obj)
+  }).then(function(r){
+    if (!r.ok) return r.text().then(function(t){ throw new Error(t || ("HTTP " + r.status)); });
+    return r.json();
+  }).then(function(rows){
+    if (rows && rows[0]) articles.unshift(rows[0]);
+    rendre();
+  });
+}
+
+function modifier(id, patch){
+  var i = articles.findIndex(function(a){ return String(a.id) === String(id); });
+  if (i > -1) Object.assign(articles[i], patch);
+  if (patch.supprime && i > -1) articles.splice(i, 1);
+  rendre();
+  if (!partage) {
+    var tout = lireLocal(), j = tout.findIndex(function(a){ return String(a.id) === String(id); });
+    if (j > -1) { Object.assign(tout[j], patch); ecrireLocal(tout); }
+    return Promise.resolve();
+  }
+  return fetch(SB_URL + "/" + TABLE + "?id=eq." + encodeURIComponent(id), {
+    method: "PATCH", headers: entetes, body: JSON.stringify(patch)
+  }).then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); })
+    .catch(function(e){ toast("Modification non enregistrée : " + e.message, true); charger(); });
+}
+
+/* =================================================================
+   4. RENDU
+   ================================================================= */
+function categories(){
+  var vues = {};
+  articles.forEach(function(a){ if (a.categorie) vues[a.categorie] = (vues[a.categorie] || 0) + 1; });
+  return Object.keys(vues).sort(function(x,y){ return vues[y] - vues[x] || x.localeCompare(y,"fr"); })
+    .map(function(c){ return { nom:c, n:vues[c] }; });
+}
+
+function rendreFiltres(){
+  var cats = categories();
+  var h = '<button class="puce" data-cat="" aria-pressed="' + (filtre === null) + '">Tout'
+        + (articles.length ? ' <span class="n">' + articles.length + '</span>' : '') + '</button>';
+  cats.forEach(function(c){
+    h += '<button class="puce" data-cat="' + echapper(c.nom) + '" aria-pressed="'
+      + (filtre === c.nom) + '">' + echapper(c.nom) + ' <span class="n">' + c.n + '</span></button>';
+  });
+  zoneFiltres.innerHTML = cats.length ? h : "";
+}
+
+function rendre(){
+  rendreFiltres();
+  zoneCompte.textContent = articles.length ? articles.length + (articles.length > 1 ? " trouvailles" : " trouvaille") : "";
+
+  var liste = filtre === null ? articles : articles.filter(function(a){ return a.categorie === filtre; });
+
+  if (!liste.length){
+    grille.innerHTML = '<div class="vide">'
+      + (articles.length
+          ? '<h2>Rien dans « ' + echapper(filtre) + ' »</h2><p>Cette catégorie est vide pour le moment.</p>'
+          : '<h2>Rien pour l\'instant</h2><p>Ajoute un premier meuble en collant son lien, ou installe le signet pour l\'attraper en un clic depuis la boutique.</p>'
+            + '<button class="btn btn--primaire" data-action="ajouter">Coller un lien</button>'
+            + '<p class="aide" style="margin-top:18px">La plupart des boutiques bloquent la lecture automatique d\'un lien collé. Pour tout récupérer en un clic, installe le signet depuis <b>Réglages</b>.</p>')
+      + '</div>';
+    return;
+  }
+
+  grille.innerHTML = liste.map(function(a){
+    var img = a.image_url
+      ? '<img class="tuile-img" src="' + echapper(a.image_url) + '" alt="' + echapper(a.titre || "") + '"'
+        + ' loading="lazy" referrerpolicy="no-referrer"'
+        + ' onerror="this.parentNode.innerHTML=\'<div class=&quot;tuile-vide&quot;><span>Photo indisponible</span><strong>'
+        + echapper((a.boutique || "").replace(/'/g, "")) + '</strong></div>\'">'
+      : '<div class="tuile-vide"><span>Sans photo</span><strong>' + echapper(a.boutique || "") + '</strong></div>';
+
+    var prix = (a.prix != null && a.prix !== "")
+      ? '<span class="tuile-prix">' + Number(a.prix).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' €</span><span class="tuile-sep">·</span>'
+      : "";
+
+    var init = a.ajoute_par ? '<span class="tuile-qui" title="Ajouté par ' + echapper(a.ajoute_par) + '">'
+      + echapper(a.ajoute_par.trim().charAt(0).toUpperCase()) + '</span>' : "";
+
+    return '<article class="tuile" data-id="' + echapper(a.id) + '">'
+      + '<a class="tuile-lien" href="' + echapper(a.url) + '" target="_blank" rel="noopener noreferrer">'
+      +   '<div class="tuile-media">' + img + '</div></a>'
+      + '<button class="tuile-menu" data-menu="' + echapper(a.id) + '" aria-label="Options">···</button>'
+      + '<div class="tuile-info">'
+      +   '<p class="tuile-titre">' + echapper(a.titre || a.url) + '</p>'
+      +   '<div class="tuile-meta">' + prix
+      +     '<span class="tuile-boutique">' + echapper(a.boutique || "") + '</span>' + init
+      +   '</div>'
+      + '</div></article>';
+  }).join("");
+}
+
+/* =================================================================
+   5. MENU DE TUILE
+   ================================================================= */
+function fermerPop(){ if (popOuvert) { popOuvert.remove(); popOuvert = null; } }
+
+function ouvrirPop(id, bouton){
+  fermerPop();
+  var a = articles.find(function(x){ return String(x.id) === String(id); });
+  if (!a) return;
+  var cats = categories().map(function(c){ return c.nom; });
+  CATS_BASE.forEach(function(c){ if (cats.indexOf(c) < 0) cats.push(c); });
+
+  var pop = document.createElement("div");
+  pop.className = "pop";
+  pop.innerHTML = '<div class="pop-titre">Catégorie</div>'
+    + cats.map(function(c){
+        return '<button data-cat="' + echapper(c) + '">' + (c === a.categorie ? "✓ " : "") + echapper(c) + '</button>';
+      }).join("")
+    + '<hr><button data-retirer="1" class="btn--danger">Retirer</button>';
+
+  bouton.parentNode.appendChild(pop);
+  bouton.setAttribute("data-ouvert","");
+  popOuvert = pop;
+
+  pop.addEventListener("click", function(e){
+    var b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.retirer) { modifier(id, { supprime:true }); toast("Retiré"); }
+    else if (b.dataset.cat) { modifier(id, { categorie: b.dataset.cat }); }
+    fermerPop();
+  });
+}
+
+document.addEventListener("click", function(e){
+  var m = e.target.closest("[data-menu]");
+  if (m) { e.preventDefault(); ouvrirPop(m.dataset.menu, m); return; }
+  if (!e.target.closest(".pop")) fermerPop();
+
+  var p = e.target.closest("[data-cat]");
+  if (p && p.classList.contains("puce")) {
+    filtre = p.dataset.cat || null;
+    rendre();
+    window.scrollTo({ top:0, behavior:"smooth" });
+  }
+  if (e.target.closest('[data-action="ajouter"]')) ouvrirAjout(null);
+});
+document.addEventListener("keydown", function(e){ if (e.key === "Escape") { fermerPop(); fermerFeuille(); } });
+
+/* =================================================================
+   6. EXTRACTION DES DONNÉES PRODUIT
+   Même logique que le signet. Ordre : JSON-LD (le plus fiable en
+   e-commerce), puis OpenGraph, puis repli.
+   ================================================================= */
+function extraireDepuisDoc(doc, href){
+  var out = { url: href, titre:"", image_url:"", prix:null, boutique:"" };
+  try { out.boutique = new URL(href).hostname.replace(/^www\./, ""); } catch(e){}
+
+  // 6a. JSON-LD Product
+  var blocs = doc.querySelectorAll('script[type="application/ld+json"]');
+  for (var i = 0; i < blocs.length && !out.titre; i++){
+    try {
+      var j = JSON.parse(blocs[i].textContent);
+      var pile = Array.isArray(j) ? j.slice() : [j];
+      while (pile.length){
+        var n = pile.shift();
+        if (!n || typeof n !== "object") continue;
+        if (n["@graph"]) { pile = pile.concat(n["@graph"]); continue; }
+        var t = n["@type"];
+        var estProduit = t === "Product" || (Array.isArray(t) && t.indexOf("Product") > -1);
+        if (!estProduit) continue;
+        out.titre = n.name || "";
+        var im = n.image;
+        if (Array.isArray(im)) im = im[0];
+        if (im && typeof im === "object") im = im.url || im.contentUrl;
+        if (im) out.image_url = im;
+        var of = n.offers; if (Array.isArray(of)) of = of[0];
+        if (of && of.price != null) out.prix = parseFloat(String(of.price).replace(",", "."));
+        break;
+      }
+    } catch(e){}
+  }
+
+  // 6b. OpenGraph
+  function meta(){
+    for (var k = 0; k < arguments.length; k++){
+      var el = doc.querySelector('meta[property="' + arguments[k] + '"], meta[name="' + arguments[k] + '"]');
+      if (el && el.content) return el.content;
+    }
+    return "";
+  }
+  if (!out.titre)     out.titre     = meta("og:title","twitter:title") || doc.title || "";
+  if (!out.image_url) out.image_url = meta("og:image","og:image:secure_url","twitter:image");
+  if (out.prix == null){
+    var p = meta("product:price:amount","og:price:amount","twitter:data1");
+    if (p) { var v = parseFloat(String(p).replace(/[^\d.,]/g,"").replace(",", ".")); if (!isNaN(v)) out.prix = v; }
+  }
+
+  // 6c. Repli : la plus grande image de la page (signet uniquement)
+  if (!out.image_url && doc === document){
+    var best = null, aire = 0;
+    Array.prototype.forEach.call(doc.images, function(im){
+      var a = im.naturalWidth * im.naturalHeight;
+      if (a > aire && im.naturalWidth > 220) { aire = a; best = im; }
+    });
+    if (best) out.image_url = best.currentSrc || best.src;
+  }
+
+  if (out.image_url) { try { out.image_url = new URL(out.image_url, href).href; } catch(e){} }
+  out.titre = (out.titre || "").replace(/\s+/g," ").trim().slice(0,180);
+  return out;
+}
+
+/* Enrichissement d'une URL collée. Passe par microlink (25 req/jour
+   en gratuit). Échoue volontairement en silence sur les boutiques
+   qui bloquent les robots : La Redoute et Kave Home renvoient
+   EPROXYNEEDED. Dans ce cas, le signet est le seul chemin. */
+function enrichir(url){
+  return fetch("https://api.microlink.io/?url=" + encodeURIComponent(url))
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (j.status !== "success") throw new Error(j.code || "échec");
+      var d = j.data, h = "";
+      try { h = new URL(url).hostname.replace(/^www\./,""); } catch(e){}
+      return {
+        url: url,
+        titre: (d.title || "").slice(0,180),
+        image_url: (d.image && d.image.url) || (d.logo && d.logo.url) || "",
+        prix: null,
+        boutique: d.publisher || h
+      };
+    });
+}
+
+/* =================================================================
+   7. PANNEAU D'AJOUT
+   ================================================================= */
+var feuilleOuverte = null;
+function fermerFeuille(){ if (feuilleOuverte) { feuilleOuverte.remove(); feuilleOuverte = null; } }
+
+function ouvrirVoile(html){
+  fermerFeuille();
+  var v = document.createElement("div");
+  v.className = "voile";
+  v.innerHTML = '<div class="feuille">' + html + '</div>';
+  v.addEventListener("click", function(e){ if (e.target === v) fermerFeuille(); });
+  document.body.appendChild(v);
+  feuilleOuverte = v;
+  return v;
+}
+
+function ouvrirAjout(data){
+  var d = data || { url:"", titre:"", image_url:"", prix:null, boutique:"" };
+  var cats = categories().map(function(c){ return c.nom; });
+  CATS_BASE.forEach(function(c){ if (cats.indexOf(c) < 0) cats.push(c); });
+
+  var v = ouvrirVoile(
+      '<div class="feuille-tete"><h2>Ajouter</h2>'
+    + '<button class="btn btn--fantome" data-fermer>×</button></div>'
+    + '<div id="zone-apercu"></div>'
+    + '<div class="champ" id="champ-url"><label for="f-url">Lien du produit</label>'
+    +   '<input id="f-url" type="url" inputmode="url" placeholder="Colle le lien ici" value="' + echapper(d.url) + '"></div>'
+    + '<div class="champ"><label for="f-titre">Nom</label>'
+    +   '<input id="f-titre" type="text" placeholder="Nom du meuble" value="' + echapper(d.titre) + '"></div>'
+    + '<div class="champ"><label for="f-image">Photo (lien de l\'image)</label>'
+    +   '<input id="f-image" type="url" inputmode="url" placeholder="Clic droit sur la photo &gt; Copier l\'adresse de l\'image" value="' + echapper(d.image_url || "") + '"></div>'
+    + '<div class="champ"><label for="f-prix">Prix (facultatif)</label>'
+    +   '<input id="f-prix" type="number" inputmode="decimal" step="0.01" placeholder="—" value="' + (d.prix != null ? echapper(d.prix) : "") + '"></div>'
+    + '<div class="champ"><label>Catégorie</label><div class="cats" id="f-cats">'
+    +   cats.map(function(c){ return '<button type="button" class="puce" data-choix="' + echapper(c) + '">' + echapper(c) + '</button>'; }).join("")
+    +   '</div><input id="f-cat" type="text" placeholder="ou tape une autre catégorie"></div>'
+    + '<div class="champ"><label for="f-qui">Qui ajoute</label>'
+    +   '<input id="f-qui" type="text" placeholder="Ton prénom" value="' + echapper(qui()) + '"></div>'
+    + '<div class="actions-feuille">'
+    +   '<button class="btn" data-fermer>Annuler</button>'
+    +   '<button class="btn btn--primaire" id="f-ok">Enregistrer</button>'
+    + '</div>'
+  );
+
+  var etat = { image_url: d.image_url || "", boutique: d.boutique || "" };
+
+  function majApercu(){
+    var z = v.querySelector("#zone-apercu");
+    var t = v.querySelector("#f-titre").value || "Sans nom";
+    z.innerHTML = '<div class="apercu">'
+      + (etat.image_url
+          ? '<img src="' + echapper(etat.image_url) + '" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;apercu-vide&quot;>Photo<br>indisponible</div>\'">'
+          : '<div class="apercu-vide">Sans photo</div>')
+      + '<div class="apercu-txt"><b>' + echapper(t) + '</b><small>' + echapper(etat.boutique || "—") + '</small></div></div>';
+  }
+  majApercu();
+  v.querySelector("#f-titre").addEventListener("input", majApercu);
+  v.querySelector("#f-image").addEventListener("input", function(){
+    etat.image_url = this.value.trim(); majApercu();
+  });
+
+  // Enrichissement automatique quand on colle une URL sans données
+  var champUrl = v.querySelector("#f-url");
+  var derniere = "";
+  function tenterEnrichir(){
+    var u = champUrl.value.trim();
+    if (!u || u === derniere || !/^https?:\/\//.test(u)) return;
+    derniere = u;
+    if (v.querySelector("#f-titre").value) return;   // déjà rempli par le signet
+    etat.boutique = (function(){ try { return new URL(u).hostname.replace(/^www\./,""); } catch(e){ return ""; } })();
+    majApercu();
+    var z = v.querySelector("#zone-apercu");
+    z.insertAdjacentHTML("beforeend", '<p class="aide" id="en-cours">Recherche de la photo…</p>');
+    enrichir(u).then(function(r){
+      if (r.titre) v.querySelector("#f-titre").value = r.titre;
+      if (r.image_url) { etat.image_url = r.image_url; v.querySelector("#f-image").value = r.image_url; }
+      if (r.boutique) etat.boutique = r.boutique;
+      majApercu();
+    }).catch(function(){
+      majApercu();
+      v.querySelector("#zone-apercu").insertAdjacentHTML("beforeend",
+        '<p class="aide"><b>Cette boutique bloque la lecture automatique.</b> IKEA, La Redoute et Kave Home sont dans ce cas. Le signet, lui, lit la page depuis ton navigateur et récupère tout d\'un coup : installe-le depuis Réglages. Sinon, remplis le nom et la photo à la main ci-dessous.</p>');
+    });
+  }
+  champUrl.addEventListener("change", tenterEnrichir);
+  champUrl.addEventListener("paste", function(){ setTimeout(tenterEnrichir, 60); });
+
+  v.querySelector("#f-cats").addEventListener("click", function(e){
+    var b = e.target.closest("[data-choix]"); if (!b) return;
+    v.querySelector("#f-cat").value = b.dataset.choix;
+    Array.prototype.forEach.call(v.querySelectorAll("#f-cats .puce"), function(p){ p.setAttribute("aria-pressed", p === b); });
+  });
+
+  if (d.categorie) v.querySelector("#f-cat").value = d.categorie;
+
+  v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
+
+  v.querySelector("#f-ok").addEventListener("click", function(){
+    var url = champUrl.value.trim();
+    if (!url) { toast("Il faut au moins un lien", true); champUrl.focus(); return; }
+    var nom = v.querySelector("#f-qui").value.trim();
+    if (nom) localStorage.setItem(CLE_QUI, nom);
+    var prixBrut = v.querySelector("#f-prix").value;
+    var btn = v.querySelector("#f-ok");
+    btn.disabled = true; btn.textContent = "…";
+    ajouter({
+      url: url,
+      titre: v.querySelector("#f-titre").value.trim(),
+      image_url: (v.querySelector("#f-image").value.trim() || etat.image_url) || null,
+      prix: prixBrut === "" ? null : parseFloat(prixBrut),
+      boutique: etat.boutique || null,
+      categorie: v.querySelector("#f-cat").value.trim() || null,
+      ajoute_par: nom || null
+    }).then(function(){
+      fermerFeuille(); toast("Ajouté");
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = "Enregistrer";
+      toast("Échec : " + e.message, true);
+    });
+  });
+
+  if (!d.url) setTimeout(function(){ champUrl.focus(); }, 120);
+}
+
+/* =================================================================
+   8. RÉGLAGES + SIGNET (généré avec l'URL réelle de l'app)
+   ================================================================= */
+function codeSignet(){
+  var app = location.href.split("#")[0];
+  return "javascript:(function(){"
+    + "var d=document,h=location.href;"
+    + "function m(){for(var i=0;i<arguments.length;i++){var e=d.querySelector('meta[property=\"'+arguments[i]+'\"],meta[name=\"'+arguments[i]+'\"]');if(e&&e.content)return e.content}return''}"
+    + "var o={url:h,titre:'',image_url:'',prix:null,boutique:location.hostname.replace(/^www\\./,'')};"
+    + "var b=d.querySelectorAll('script[type=\"application/ld+json\"]');"
+    + "for(var i=0;i<b.length&&!o.titre;i++){try{var j=JSON.parse(b[i].textContent),p=Array.isArray(j)?j.slice():[j];"
+    + "while(p.length){var n=p.shift();if(!n||typeof n!='object')continue;if(n['@graph']){p=p.concat(n['@graph']);continue}"
+    + "var t=n['@type'];if(!(t=='Product'||(Array.isArray(t)&&t.indexOf('Product')>-1)))continue;"
+    + "o.titre=n.name||'';var im=n.image;if(Array.isArray(im))im=im[0];if(im&&typeof im=='object')im=im.url||im.contentUrl;if(im)o.image_url=im;"
+    + "var f=n.offers;if(Array.isArray(f))f=f[0];if(f&&f.price!=null)o.prix=parseFloat(String(f.price).replace(',','.'));break}}catch(e){}}"
+    + "if(!o.titre)o.titre=m('og:title','twitter:title')||d.title||'';"
+    + "if(!o.image_url)o.image_url=m('og:image','og:image:secure_url','twitter:image');"
+    + "if(o.prix==null){var q=m('product:price:amount','og:price:amount');if(q){var v=parseFloat(String(q).replace(/[^\\d.,]/g,'').replace(',','.'));if(!isNaN(v))o.prix=v}}"
+    + "if(!o.image_url){var bi=null,ar=0;[].forEach.call(d.images,function(x){var a=x.naturalWidth*x.naturalHeight;if(a>ar&&x.naturalWidth>220){ar=a;bi=x}});if(bi)o.image_url=bi.currentSrc||bi.src}"
+    + "if(o.image_url){try{o.image_url=new URL(o.image_url,h).href}catch(e){}}"
+    + "o.titre=(o.titre||'').replace(/\\s+/g,' ').trim().slice(0,180);"
+    + "var u='" + app + "#add='+encodeURIComponent(JSON.stringify(o));"
+    + "var w=window.open(u,'_blank');if(!w)location.href=u;"
+    + "})()";
+}
+
+function ouvrirReglages(){
+  var v = ouvrirVoile(
+      '<div class="feuille-tete"><h2>Réglages</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
+    + (partage
+        ? '<p class="aide">Liste partagée : tes ajouts et ceux de Frédéric arrivent au même endroit.</p>'
+        : '<div class="alerte"><b>Mode local.</b> Supabase n\'est pas encore configuré, cette liste ne vit que sur cet appareil et n\'est pas partagée. Renseigne <code>SB_URL</code> et <code>SB_KEY</code> en haut du fichier.</div>')
+    + '<div class="champ" style="margin-top:16px"><label for="r-qui">Ton prénom</label>'
+    +   '<input id="r-qui" type="text" placeholder="Stéphanie" value="' + echapper(qui()) + '"></div>'
+    + '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">'
+    + '<p class="aide"><b>Le signet, sur Mac.</b> Il lit la page depuis ton navigateur, donc il fonctionne même sur les boutiques qui bloquent les robots.</p>'
+    + '<p class="aide"><b>Dans Safari, ne fais pas glisser le bouton</b>, Safari abîme le code en le déposant. Copie-le et colle-le à la main :<br>'
+    +   '1. Copie le code ci-dessous.<br>'
+    +   '2. Signets &gt; Modifier les signets, puis clic droit dans Favoris &gt; Nouveau signet.<br>'
+    +   '3. Nomme-le <b>fav-deco</b> et colle le code dans le champ Adresse.</p>'
+    + '<button class="btn btn--primaire" id="r-copier" style="width:100%;margin:4px 0 8px">Copier le code du signet</button>'
+    + '<textarea id="r-code" readonly rows="3" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:11px;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text-muted);resize:vertical"></textarea>'
+    + '<p class="aide" style="margin-top:10px">Sur Chrome, tu peux simplement faire glisser ce bouton dans la barre de favoris : <a class="signet-lien" id="r-signet" href="#" style="padding:5px 12px;font-size:13px">+ fav-deco</a></p>'
+    + '<p class="aide"><b>Sur iPhone</b>, la recette du raccourci « Partager » est dans le fichier <code>signet.md</code> du projet.</p>'
+    + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
+  );
+  var code = codeSignet();
+  v.querySelector("#r-code").value = code;
+  v.querySelector("#r-signet").setAttribute("href", code);
+  v.querySelector("#r-copier").addEventListener("click", function(){
+    var zone = v.querySelector("#r-code");
+    function manuel(){ zone.focus(); zone.select(); toast("Sélectionné : fais Cmd+C pour copier"); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(function(){ toast("Code copié"); }, manuel);
+    } else manuel();
+  });
+  v.querySelector("#r-signet").addEventListener("click", function(e){
+    e.preventDefault();
+    toast("Fais-le glisser dans la barre de favoris, ne clique pas dessus");
+  });
+  v.querySelector("#r-qui").addEventListener("change", function(){
+    localStorage.setItem(CLE_QUI, this.value.trim());
+  });
+  v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
+}
+
+/* =================================================================
+   9. DÉMARRAGE
+   ================================================================= */
+$("#btn-ajouter").addEventListener("click", function(){ ouvrirAjout(null); });
+$("#btn-reglages").addEventListener("click", ouvrirReglages);
+
+// Ombre de l'en-tête au défilement
+var tete = $("#tete");
+addEventListener("scroll", function(){
+  if (window.scrollY > 4) tete.setAttribute("data-colle",""); else tete.removeAttribute("data-colle");
+}, { passive:true });
+
+// Arrivée depuis le signet ou le raccourci iOS : #add=<json>
+function lireHash(){
+  var m = location.hash.match(/^#add=(.*)$/);
+  if (!m) return;
+  var d = null;
+  try { d = JSON.parse(decodeURIComponent(m[1])); } catch(e){}
+  history.replaceState(null, "", location.pathname + location.search);
+  if (d && d.url) ouvrirAjout(d);
+}
+
+// Chacun voit les ajouts de l'autre au retour sur l'onglet
+document.addEventListener("visibilitychange", function(){
+  if (!document.hidden && partage) charger();
+});
+
+charger().then(lireHash);
+addEventListener("hashchange", lireHash);
+
+})();
+</script>
+</body>
+</html>
