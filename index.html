@@ -187,10 +187,18 @@ a{color:inherit}
 /* Grille, et non colonnes libres : les rangées démarrent toutes à la
    même hauteur. Les colonnes libres décalaient les sections les unes par
    rapport aux autres dès que leurs hauteurs différaient. */
-#contenu[data-vue="cat"]{display:grid;gap:4px 20px;align-items:start}
+#contenu[data-vue="cat"]{display:grid;gap:4px 30px;align-items:start}
 #contenu[data-vue="cat"][data-col="1"]{grid-template-columns:1fr}
 #contenu[data-vue="cat"][data-col="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}
 #contenu[data-vue="cat"][data-col="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+/* Séparation entre colonnes de catégories : trait + espace, pas de
+   simple espace blanc qui se confond avec la marge des cartes. */
+#contenu[data-vue="cat"][data-col="2"] .section:nth-child(2n),
+#contenu[data-vue="cat"][data-col="3"] .section:not(:nth-child(3n+1)){
+  border-left:1px solid var(--border-strong);
+  padding-left:26px;
+}
 
 .section{margin:0 0 22px;min-width:0}
 .section-titre{
@@ -207,14 +215,31 @@ a{color:inherit}
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:var(--gouttiere);align-items:start;
 }
-/* Par catégorie : les vignettes remplissent la largeur que la section
-   a reçue, quel que soit le nombre de colonnes choisi. */
-#contenu[data-vue="cat"] .grille{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+/* Taille des vignettes par catégorie : dépend du nombre de colonnes de
+   catégories choisi, pas d'une largeur minimale fixe. Une section pleine
+   largeur (1 colonne) doit paraître aussi grande qu'en vue « Tout » ; à
+   2 ou 3 colonnes, chaque section est plus étroite, donc moins de
+   vignettes par rangée, en restant lisible. */
+#contenu[data-vue="tout"] .grille,
+#contenu[data-vue="cat"][data-col="1"] .grille{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media(min-width:640px){
+  #contenu[data-vue="tout"] .grille,
+  #contenu[data-vue="cat"][data-col="1"] .grille{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media(min-width:980px){
+  :root{--gouttiere:18px}
+  #contenu[data-vue="tout"] .grille,
+  #contenu[data-vue="cat"][data-col="1"] .grille{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
+@media(min-width:1300px){
+  #contenu[data-vue="tout"] .grille,
+  #contenu[data-vue="cat"][data-col="1"] .grille{ grid-template-columns:repeat(5,minmax(0,1fr)); }
+}
 
-/* Tout : une seule grande grille */
-@media(min-width:640px){ #contenu[data-vue="tout"] .grille{grid-template-columns:repeat(3,minmax(0,1fr))} }
-@media(min-width:980px){ :root{--gouttiere:18px} #contenu[data-vue="tout"] .grille{grid-template-columns:repeat(4,minmax(0,1fr))} }
-@media(min-width:1300px){ #contenu[data-vue="tout"] .grille{grid-template-columns:repeat(5,minmax(0,1fr))} }
+#contenu[data-vue="cat"][data-col="2"] .grille{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); }
+@media(min-width:900px){ #contenu[data-vue="cat"][data-col="2"] .grille{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+#contenu[data-vue="cat"][data-col="3"] .grille{ grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); }
 
 .tuile{
   position:relative;min-width:0;
@@ -226,13 +251,17 @@ a{color:inherit}
    blanc, et contain pour ne jamais recadrer un meuble de travers. */
 .tuile-media{
   aspect-ratio:4/5;background:var(--surface);border-radius:var(--r-img);
-  overflow:hidden;display:grid;place-items:center;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
 }
 @keyframes apparait{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 .tuile-lien{display:block;text-decoration:none;position:relative}
 .tuile-img{
-  display:block;width:100%;height:100%;object-fit:contain;padding:7px;
+  /* max-width/max-height plutôt que width/height:100% + object-fit :
+     centre et ne rogne jamais, y compris sur les photos très verticales
+     (portrait, type 9:16), quel que soit le navigateur. */
+  display:block;max-width:100%;max-height:100%;width:auto;height:auto;
+  object-fit:contain;padding:7px;box-sizing:border-box;
   transition:filter .25s var(--ease);
 }
 .tuile-lien:hover .tuile-img{filter:brightness(.94)}
