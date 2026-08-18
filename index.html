@@ -1295,6 +1295,48 @@ function codeSignet(){
     + "})()";
 }
 
+/* Même extraction, pour l'action « Exécuter JavaScript sur la page web »
+   d'un raccourci iOS : pas de wrapper javascript:(function(){…})(), et on
+   termine par completion(...) plutôt que window.open(...), comme l'exige
+   Raccourcis. */
+function codeRaccourciIOS(){
+  var app = location.href.split("#")[0];
+  return "var d = document, h = location.href;\n"
+    + "function m(){for(var i=0;i<arguments.length;i++){var e=d.querySelector('meta[property=\"'+arguments[i]+'\"],meta[name=\"'+arguments[i]+'\"]');if(e&&e.content)return e.content}return''}\n"
+    + "var o = {url:h, titre:'', image_url:'', prix:null, boutique:location.hostname.replace(/^www\\./,'')};\n"
+    + "var b = d.querySelectorAll('script[type=\"application/ld+json\"]');\n"
+    + "for (var i=0; i<b.length && !o.titre; i++){\n"
+    + "  try{\n"
+    + "    var j = JSON.parse(b[i].textContent), p = Array.isArray(j) ? j.slice() : [j];\n"
+    + "    while (p.length){\n"
+    + "      var n = p.shift();\n"
+    + "      if (!n || typeof n != 'object') continue;\n"
+    + "      if (n['@graph']) { p = p.concat(n['@graph']); continue; }\n"
+    + "      var t = n['@type'];\n"
+    + "      if (!(t == 'Product' || (Array.isArray(t) && t.indexOf('Product') > -1))) continue;\n"
+    + "      o.titre = n.name || '';\n"
+    + "      var im = n.image; if (Array.isArray(im)) im = im[0];\n"
+    + "      if (im && typeof im == 'object') im = im.url || im.contentUrl;\n"
+    + "      if (im) o.image_url = im;\n"
+    + "      var f = n.offers; if (Array.isArray(f)) f = f[0];\n"
+    + "      if (f && f.price != null) o.prix = parseFloat(String(f.price).replace(',', '.'));\n"
+    + "      break;\n"
+    + "    }\n"
+    + "  } catch(e){}\n"
+    + "}\n"
+    + "if (!o.titre) o.titre = m('og:title','twitter:title') || d.title || '';\n"
+    + "if (!o.image_url) o.image_url = m('og:image','og:image:secure_url','twitter:image');\n"
+    + "if (o.prix == null){ var q = m('product:price:amount','og:price:amount');\n"
+    + "  if (q){ var v = parseFloat(String(q).replace(/[^\\d.,]/g,'').replace(',','.')); if (!isNaN(v)) o.prix = v; } }\n"
+    + "if (!o.image_url){ var bi = null, ar = 0;\n"
+    + "  [].forEach.call(d.images, function(x){ var a = x.naturalWidth * x.naturalHeight;\n"
+    + "    if (a > ar && x.naturalWidth > 220){ ar = a; bi = x; } });\n"
+    + "  if (bi) o.image_url = bi.currentSrc || bi.src; }\n"
+    + "if (o.image_url){ try { o.image_url = new URL(o.image_url, h).href; } catch(e){} }\n"
+    + "o.titre = (o.titre || '').replace(/\\s+/g,' ').trim().slice(0,180);\n\n"
+    + "completion(\"" + app + "#add=\" + encodeURIComponent(JSON.stringify(o)));";
+}
+
 function ouvrirReglages(){
   var v = ouvrirVoile(
       '<div class="feuille-tete"><h2>Réglages</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
@@ -1312,7 +1354,20 @@ function ouvrirReglages(){
     + '<button class="btn btn--primaire" id="r-copier" style="width:100%;margin:4px 0 8px">Copier le code du signet</button>'
     + '<textarea id="r-code" readonly rows="3" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:11px;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text-muted);resize:vertical"></textarea>'
     + '<p class="aide" style="margin-top:10px">Sur Chrome, tu peux simplement faire glisser ce bouton dans la barre de favoris : <a class="signet-lien" id="r-signet" href="#" style="padding:5px 12px;font-size:13px">+ fav-deco</a></p>'
-    + '<p class="aide"><b>Sur iPhone</b>, la recette du raccourci « Partager » est dans le fichier <code>signet.md</code> du projet.</p>'
+    + '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">'
+    + '<p class="aide"><b>Sur iPhone : le raccourci Partager.</b> L\'équivalent du signet, dans le menu Partager de Safari. Chacun doit l\'installer sur son propre iPhone.</p>'
+    + '<p class="aide">'
+    +   '1. Ouvre l\'app <b>Raccourcis</b>, appuie sur <b>+</b>.<br>'
+    +   '2. Renomme le raccourci <b>Ajouter à la déco</b>.<br>'
+    +   '3. Touche l\'icône <b>(i)</b> en bas, active <b>Afficher dans la feuille de partage</b>.<br>'
+    +   '4. Juste en dessous, règle <b>Types d\'entrée acceptés</b> sur <b>Pages web Safari</b> uniquement.<br>'
+    +   '5. Ajoute l\'action <b>Exécuter JavaScript sur la page web</b>.<br>'
+    +   '6. Colle le code ci-dessous à l\'intérieur (bouton juste en dessous).<br>'
+    +   '7. Ajoute enfin l\'action <b>Ouvrir les URL</b>, branchée sur le résultat du JavaScript.'
+    + '</p>'
+    + '<button class="btn btn--primaire" id="r-copier-ios" style="width:100%;margin:4px 0 8px">Copier le code du raccourci</button>'
+    + '<textarea id="r-code-ios" readonly rows="3" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:11px;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text-muted);resize:vertical"></textarea>'
+    + '<p class="aide" style="margin-top:10px">À l\'usage : sur la page d\'un produit dans Safari, bouton Partager, puis <b>Ajouter à la déco</b>. La première fois, iOS demande d\'autoriser le JavaScript sur la page : c\'est normal, accepte, sinon le raccourci ne peut rien lire.</p>'
     + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
   );
   var code = codeSignet();
@@ -1328,6 +1383,15 @@ function ouvrirReglages(){
   v.querySelector("#r-signet").addEventListener("click", function(e){
     e.preventDefault();
     toast("Fais-le glisser dans la barre de favoris, ne clique pas dessus");
+  });
+  var codeIOS = codeRaccourciIOS();
+  v.querySelector("#r-code-ios").value = codeIOS;
+  v.querySelector("#r-copier-ios").addEventListener("click", function(){
+    var zone = v.querySelector("#r-code-ios");
+    function manuel(){ zone.focus(); zone.select(); toast("Sélectionné : fais Cmd+C pour copier"); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(codeIOS).then(function(){ toast("Code copié"); }, manuel);
+    } else manuel();
   });
   v.querySelector("#r-qui").addEventListener("change", function(){
     localStorage.setItem(CLE_QUI, this.value.trim());
