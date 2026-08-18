@@ -622,7 +622,11 @@ function lireLocal(){
 function ecrireLocal(a){ localStorage.setItem(CLE_LOCALE, JSON.stringify(a)); }
 
 function charger(){
-  if (!partage) { articles = lireLocal(); rendre(); return Promise.resolve(); }
+  if (!partage) {
+    articles = lireLocal().filter(function(a){ return !a.supprime; });
+    rendre();
+    return Promise.resolve();
+  }
   return fetch(SB_URL + "/" + TABLE + "?supprime=eq.false&select=*&order=cree_le.desc", { headers: entetes })
     .then(function(r){
       if (!r.ok) throw new Error("HTTP " + r.status);
