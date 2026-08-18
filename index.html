@@ -192,12 +192,17 @@ a{color:inherit}
 #contenu[data-vue="cat"][data-col="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}
 #contenu[data-vue="cat"][data-col="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
 
-/* Séparation entre colonnes de catégories : trait + espace, pas de
-   simple espace blanc qui se confond avec la marge des cartes. */
-#contenu[data-vue="cat"][data-col="2"] .section:nth-child(2n),
-#contenu[data-vue="cat"][data-col="3"] .section:not(:nth-child(3n+1)){
-  border-left:1px solid var(--border-strong);
-  padding-left:26px;
+/* Séparation entre colonnes de catégories : un trait posé dans l'espace
+   entre les colonnes (pseudo-élément), jamais une bordure/un padding sur
+   la section elle-même. Un border-left grignotait 27px de largeur côté
+   droit, donc ses vignettes finissaient plus petites que celles de la
+   colonne de gauche : la 1ère demande était « toutes les images à
+   l'écran de la même taille ». */
+.section{position:relative}
+#contenu[data-vue="cat"][data-col="2"] .section:nth-child(2n)::before,
+#contenu[data-vue="cat"][data-col="3"] .section:not(:nth-child(3n+1))::before{
+  content:"";position:absolute;top:2px;bottom:2px;left:-15px;
+  width:1px;background:var(--border-strong);
 }
 
 .section{margin:0 0 22px;min-width:0}
@@ -236,10 +241,16 @@ a{color:inherit}
   #contenu[data-vue="cat"][data-col="1"] .grille{ grid-template-columns:repeat(5,minmax(0,1fr)); }
 }
 
-#contenu[data-vue="cat"][data-col="2"] .grille{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); }
-@media(min-width:900px){ #contenu[data-vue="cat"][data-col="2"] .grille{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+/* Nombre de colonnes de produits fixé explicitement, pas déduit de la
+   largeur (auto-fill) : le trait de séparation retire 27px aux sections
+   qui ne sont pas en première position, donc auto-fill y calait moins
+   de vignettes par rangée, plus grandes que chez leurs voisines. Un
+   compte fixe garantit la même taille de vignette dans toutes les
+   catégories, quelle que soit leur position. */
+#contenu[data-vue="cat"][data-col="2"] .grille{ grid-template-columns:repeat(1,minmax(0,1fr)); }
+@media(min-width:640px){ #contenu[data-vue="cat"][data-col="2"] .grille{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
-#contenu[data-vue="cat"][data-col="3"] .grille{ grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); }
+#contenu[data-vue="cat"][data-col="3"] .grille{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 
 .tuile{
   position:relative;min-width:0;
