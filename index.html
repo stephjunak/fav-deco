@@ -537,27 +537,53 @@ a{color:inherit}
 
 /* =================================================================
    1. CONFIGURATION
-   Renseigne ces deux valeurs après avoir créé le projet Supabase.
+   Renseigne ces deux valeurs après avoir créé le projet Firebase.
    Tant qu'elles sont vides, l'app tourne en local sur cet appareil
    seulement (rien n'est partagé), ce qui permet de l'essayer tout
-   de suite.
-   ================================================================= */
-var SB_URL = "";   // ex: https://xxxxxxxx.supabase.co/rest/v1
-var SB_KEY = "";   // clé anon (publishable)
+   de suite. Stockage : Firestore, via son API REST directe (pas le
+   SDK), même principe que le reste de l'app. */
+var FB_PROJECT = "";   // ex: fav-deco-a1b2c
+var FB_API_KEY = "";   // clé API web (Project settings > General)
 
-var TABLE  = "favoris";
+var COLLECTION = "favoris";
 var CLE_LOCALE = "favdeco:items";
 var CLE_QUI    = "favdeco:qui";
 var CLE_VUE    = "favdeco:vue";
 var CLE_ORDRE  = "favdeco:ordre";
 var CLE_COL    = "favdeco:col";
 
-var partage = !!(SB_URL && SB_KEY);
-var entetes = {
-  "apikey": SB_KEY,
-  "Authorization": "Bearer " + SB_KEY,
-  "Content-Type": "application/json"
-};
+var partage = !!(FB_PROJECT && FB_API_KEY);
+var FS_BASE = "https://firestore.googleapis.com/v1/projects/" + FB_PROJECT
+            + "/databases/(default)/documents/" + COLLECTION;
+
+/* Firestore REST encode chaque valeur avec son type
+   ({stringValue:...}, {integerValue:...}, ...). Ces deux fonctions font
+   l'aller-retour avec de simples objets JS, pour que le reste de l'app
+   n'ait jamais à connaître ce format. */
+function versChampsFirestore(obj){
+  var champs = {};
+  Object.keys(obj).forEach(function(k){
+    var v = obj[k];
+    if (v === null || v === undefined) champs[k] = { nullValue: null };
+    else if (typeof v === "boolean") champs[k] = { booleanValue: v };
+    else if (typeof v === "number") champs[k] = Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+    else champs[k] = { stringValue: String(v) };
+  });
+  return champs;
+}
+function depuisChampsFirestore(champs){
+  var obj = {};
+  Object.keys(champs || {}).forEach(function(k){
+    var v = champs[k];
+    if ("stringValue" in v) obj[k] = v.stringValue;
+    else if ("integerValue" in v) obj[k] = parseInt(v.integerValue, 10);
+    else if ("doubleValue" in v) obj[k] = v.doubleValue;
+    else if ("booleanValue" in v) obj[k] = v.booleanValue;
+    else obj[k] = null;
+  });
+  return obj;
+}
+function idDepuisNomFirestore(nom){ return nom.split("/").pop(); }
 
 /* =================================================================
    2. ÉTAT
@@ -639,7 +665,7 @@ function toast(msg, err, action){
 function qui(){ return localStorage.getItem(CLE_QUI) || ""; }
 
 /* =================================================================
-   3. STOCKAGE  (Supabase REST, ou localStorage si non configuré)
+   3. STOCKAGE  (Firestore REST, ou localStorage si non configuré)
    ================================================================= */
 function lireLocal(){
   try { return JSON.parse(localStorage.getItem(CLE_LOCALE) || "[]"); }
@@ -653,19 +679,30 @@ function charger(){
     rendre();
     return Promise.resolve();
   }
-  return fetch(SB_URL + "/" + TABLE + "?supprime=eq.false&select=*&order=cree_le.desc", { headers: entetes })
+  // Pas de "WHERE" ni de "ORDER BY" simple dans l'API REST Firestore :
+  // on charge la collection (une liste perso reste petite) et on filtre/
+  // trie côté client, comme le reste de l'app le fait déjà pour les
+  // catégories.
+  return fetch(FS_BASE + "?pageSize=1000&key=" + FB_API_KEY)
     .then(function(r){
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     })
     .then(function(data){
+      var docs = (data.documents || []).map(function(d){
+        var o = depuisChampsFirestore(d.fields);
+        o.id = idDepuisNomFirestore(d.name);
+        return o;
+      }).filter(function(a){ return !a.supprime; })
+        .sort(function(a, b){ return String(b.cree_le || "").localeCompare(String(a.cree_le || "")); });
+
       // Garde-fou repris de vinted-search : ne jamais remplacer un
       // affichage rempli par une réponse vide (incident du 01/07/2026).
-      if ((!data || !data.length) && articles.length) {
+      if (!docs.length && articles.length) {
         console.warn("Réponse vide ignorée, l'affichage est conservé.");
         return;
       }
-      articles = data || [];
+      articles = docs;
       rendre();
     })
     .catch(function(e){
@@ -682,15 +719,17 @@ function ajouter(obj){
     articles.unshift(obj); ecrireLocal(articles); rendre();
     return Promise.resolve();
   }
-  return fetch(SB_URL + "/" + TABLE, {
+  return fetch(FS_BASE + "?key=" + FB_API_KEY, {
     method: "POST",
-    headers: Object.assign({}, entetes, { "Prefer": "return=representation" }),
-    body: JSON.stringify(obj)
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: versChampsFirestore(obj) })
   }).then(function(r){
     if (!r.ok) return r.text().then(function(t){ throw new Error(t || ("HTTP " + r.status)); });
     return r.json();
-  }).then(function(rows){
-    if (rows && rows[0]) articles.unshift(rows[0]);
+  }).then(function(doc){
+    var nouveau = depuisChampsFirestore(doc.fields);
+    nouveau.id = idDepuisNomFirestore(doc.name);
+    articles.unshift(nouveau);
     rendre();
   });
 }
@@ -705,15 +744,27 @@ function modifier(id, patch){
     if (j > -1) { Object.assign(tout[j], patch); ecrireLocal(tout); }
     return Promise.resolve();
   }
-  return fetch(SB_URL + "/" + TABLE + "?id=eq." + encodeURIComponent(id), {
-    method: "PATCH", headers: entetes, body: JSON.stringify(patch)
+  return fetch(urlDocFirestore(id, Object.keys(patch)), {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: versChampsFirestore(patch) })
   }).then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); })
     .catch(function(e){ toast("Modification non enregistrée : " + e.message, true); charger(); });
+}
+
+/* Une PATCH Firestore sans updateMask REMPLACE le document entier (elle
+   effacerait tous les champs absents du patch) : chaque champ modifié
+   doit être listé explicitement, piège vérifié avant mise en prod. */
+function urlDocFirestore(id, champs){
+  var params = new URLSearchParams();
+  params.set("key", FB_API_KEY);
+  champs.forEach(function(c){ params.append("updateMask.fieldPaths", c); });
+  return FS_BASE + "/" + id + "?" + params.toString();
 }
 
 /* Renomme une catégorie partout. nouveau = null vide la catégorie,
    les meubles retombent dans « Sans catégorie » et ne sont jamais perdus. */
 function majCategorie(ancien, nouveau){
+  var concernes = articles.filter(function(a){ return a.categorie === ancien; }).map(function(a){ return a.id; });
   articles.forEach(function(a){ if (a.categorie === ancien) a.categorie = nouveau; });
   var o = ordre(), i = o.indexOf(ancien);
   if (i > -1){ if (nouveau) o[i] = nouveau; else o.splice(i, 1); poserOrdre(o); }
@@ -726,10 +777,17 @@ function majCategorie(ancien, nouveau){
     ecrireLocal(tout);
     return Promise.resolve();
   }
-  return fetch(SB_URL + "/" + TABLE + "?categorie=eq." + encodeURIComponent(ancien), {
-    method: "PATCH", headers: entetes, body: JSON.stringify({ categorie: nouveau })
-  }).then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); })
-    .catch(function(e){ toast("Non enregistré : " + e.message, true); charger(); });
+  // Pas de "PATCH WHERE" en Firestore : un appel par article concerné,
+  // même technique que deplacerArticle() pour le rang.
+  return Promise.all(concernes.map(function(id){
+    return fetch(urlDocFirestore(id, ["categorie"]), {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: versChampsFirestore({ categorie: nouveau }) })
+    });
+  })).then(function(reponses){
+    var echec = reponses.find(function(r){ return !r.ok; });
+    if (echec) throw new Error("HTTP " + echec.status);
+  }).catch(function(e){ toast("Non enregistré : " + e.message, true); charger(); });
 }
 
 function deplacerCategorie(nom, delta){
@@ -742,7 +800,7 @@ function deplacerCategorie(nom, delta){
 }
 
 /* Ordre des articles À L'INTÉRIEUR d'une catégorie : champ `rang`, partagé
-   (Supabase), à la différence de l'ordre des catégories qui reste local à
+   (Firestore), à la différence de l'ordre des catégories qui reste local à
    chaque appareil. Sans rang (valeur par défaut), l'ordre reste celui de
    l'ajout, le plus récent en premier. */
 function triCategorie(liste){
@@ -788,8 +846,9 @@ function supprimerArticle(id){
         if (j > -1){ tout[j].supprime = false; ecrireLocal(tout); }
         return;
       }
-      fetch(SB_URL + "/" + TABLE + "?id=eq." + encodeURIComponent(id), {
-        method: "PATCH", headers: entetes, body: JSON.stringify({ supprime:false })
+      fetch(urlDocFirestore(id, ["supprime"]), {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: versChampsFirestore({ supprime:false }) })
       }).catch(function(e){ toast("Annulation non enregistrée : " + e.message, true); });
     }
   });
@@ -1342,7 +1401,7 @@ function ouvrirReglages(){
       '<div class="feuille-tete"><h2>Réglages</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
     + (partage
         ? '<p class="aide">Liste partagée : tes ajouts et ceux de Frédéric arrivent au même endroit.</p>'
-        : '<div class="alerte"><b>Mode local.</b> Supabase n\'est pas encore configuré, cette liste ne vit que sur cet appareil et n\'est pas partagée. Renseigne <code>SB_URL</code> et <code>SB_KEY</code> en haut du fichier.</div>')
+        : '<div class="alerte"><b>Mode local.</b> Firebase n\'est pas encore configuré, cette liste ne vit que sur cet appareil et n\'est pas partagée. Renseigne <code>FB_PROJECT</code> et <code>FB_API_KEY</code> en haut du fichier.</div>')
     + '<div class="champ" style="margin-top:16px"><label for="r-qui">Ton prénom</label>'
     +   '<input id="r-qui" type="text" placeholder="Stéphanie" value="' + echapper(qui()) + '"></div>'
     + '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">'
