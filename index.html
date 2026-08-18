@@ -593,6 +593,37 @@ function urlAffichage(u){
   if (/^data:|^blob:|^https?:\/\/wsrv\.nl\//.test(u)) return u;   // déjà local ou déjà proxifié
   return "https://wsrv.nl/?url=" + encodeURIComponent(u) + "&w=640&output=webp";
 }
+
+/* Certaines boutiques bloquent le proxy sur une variante précise de leur
+   image (constaté sur Sklum : leur format "-large_default" renvoie un
+   403 à wsrv.nl alors qu'un navigateur y accède sans problème), tout en
+   laissant passer un navigateur direct. Plutôt que d'abandonner sur
+   « indisponible » alors que la photo existe bien, on retente une fois
+   en direct avant de renoncer. */
+function repliImage(img){
+  var reel = img.dataset.reel;
+  if (reel && img.src !== reel){
+    img.onerror = function(){ videMedia(img); };
+    img.src = reel;
+    return;
+  }
+  videMedia(img);
+}
+function videMedia(img, texte){
+  var zone = img.closest(".tuile-media, .apercu");
+  var boutique = img.dataset.boutique || "";
+  var html = zone && zone.classList.contains("apercu")
+    ? '<div class="apercu-vide">Photo<br>indisponible</div>'
+    : '<div class="tuile-vide"><span>' + (texte || "Photo indisponible") + '</span>'
+      + (boutique ? '<strong>' + echapper(boutique) + '</strong>' : '') + '</div>';
+  (zone || img.parentNode).innerHTML = html;
+}
+// Ce fichier est enfermé dans une IIFE : un attribut HTML inline
+// (onerror="repliImage(this)") s'exécute dans le contexte global, donc
+// invisible sans cet export explicite. Piège vécu le 18/08/2026 : la
+// fonction existait, marchait au test direct, mais ne se déclenchait
+// jamais depuis une vraie image cassée (ReferenceError silencieuse).
+window.repliImage = repliImage;
 /* action optionnelle : { libelle, fait() }, ajoute un bouton (ex. Annuler) */
 function toast(msg, err, action){
   var t = document.createElement("div");
@@ -806,10 +837,8 @@ function rendreFiltres(){
 function tuileHTML(a, ctx){
   ctx = ctx || {};
   var img = a.image_url
-    ? '<img class="tuile-img" src="' + echapper(urlAffichage(a.image_url)) + '" alt="' + echapper(a.titre || "") + '"'
-      + ' loading="lazy" referrerpolicy="no-referrer"'
-      + ' onerror="this.parentNode.innerHTML=\'<div class=&quot;tuile-vide&quot;><span>Photo indisponible</span><strong>'
-      + echapper((a.boutique || "").replace(/'/g, "")) + '</strong></div>\'">'
+    ? '<img class="tuile-img" src="' + echapper(urlAffichage(a.image_url)) + '" data-reel="' + echapper(a.image_url) + '" data-boutique="' + echapper(a.boutique || "") + '" alt="' + echapper(a.titre || "") + '"'
+      + ' loading="lazy" referrerpolicy="no-referrer" onerror="repliImage(this)">'
     : '<div class="tuile-vide"><span>Sans photo</span><strong>' + echapper(a.boutique || "") + '</strong></div>';
 
   var prix = (a.prix != null && a.prix !== "")
@@ -1109,7 +1138,7 @@ function ouvrirAjout(data, idEdite){
     var pr = v.querySelector("#f-prix").value;
     z.innerHTML = '<div class="apercu">'
       + (etat.image_url
-          ? '<img src="' + echapper(urlAffichage(etat.image_url)) + '" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;apercu-vide&quot;>Photo<br>indisponible</div>\'">'
+          ? '<img src="' + echapper(urlAffichage(etat.image_url)) + '" data-reel="' + echapper(etat.image_url) + '" alt="" referrerpolicy="no-referrer" onerror="repliImage(this)">'
           : '<div class="apercu-vide">Sans photo</div>')
       + '<div class="apercu-txt"><b>' + echapper(t) + '</b><small>'
       + (pr ? Number(pr).toLocaleString("fr-FR", {maximumFractionDigits:0}) + ' € · ' : '')
