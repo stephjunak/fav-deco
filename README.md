@@ -270,6 +270,9 @@ Rien de bloquant à ce stade. Si besoin de continuer :
   deviennent invisibles d'un coup, ce qui a fait croire à une base vidée. Vérifier
   `localStorage.getItem('favdeco:items')` sur l'appareil concerné avant de s'inquiéter ;
   la migration se fait ensuite par script (API REST Firestore, un `POST` par fiche).
+- **Ajouter plusieurs articles à la suite ouvrait un nouvel onglet à chaque fois**, sur Mac comme sur iPhone, gênant en pleine session de shopping. Corrigé le 19/08/2026, différemment selon la plateforme :
+  - **Mac (signet)** : `window.open(u,'_blank')` → `window.open(u,'fav-deco-app')` dans `codeSignet()` (`index.html`). Un nom de fenêtre fixe au lieu de `_blank` fait que le navigateur réutilise l'onglet existant tant qu'il n'a pas été fermé, au lieu d'en ouvrir un nouveau à chaque clic.
+  - **iPhone (raccourci)** : l'action Raccourcis « Ouvrir les URL » ouvre toujours un nouvel onglet Safari, qui reste ensuite ouvert. Remplacée par **« Show Web View »**, qui affiche la page dans une fenêtre d'aperçu temporaire (Safari View Controller) refermée d'elle-même, sans laisser de trace dans les onglets. Voir `signet.md`.
 - **Partage d'un raccourci iOS à un tiers : trois pièges différents.** L'erreur « iPhone
   non connecté à iCloud » lors d'un partage par lien iCloud vient en réalité du réglage
   iCloud propre à l'app **Raccourcis** (Réglages → iCloud → Raccourcis) ou d'un espace

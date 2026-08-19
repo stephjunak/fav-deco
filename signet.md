@@ -97,7 +97,11 @@ correspondre exactement à ce qui s'affiche. Préférer l'AirDrop dès que possi
 5. Ajoute l'action **Exécuter JavaScript sur la page web**.
 6. Remplace tout le contenu de l'action par le code ci-dessous, en remplaçant
    `ADRESSE_DE_LAPP` par l'adresse réelle de fav-deco.
-7. Ajoute enfin l'action **Ouvrir les URL**, branchée sur le résultat du JavaScript.
+7. Ajoute enfin l'action **Show Web View** (cherche « web view » ou « vue web » dans le panneau
+   d'actions, le libellé exact varie selon la version d'iOS), branchée sur le résultat du
+   JavaScript. **Pas « Ouvrir les URL »** : cette action ouvre un nouvel onglet Safari à chaque
+   fois, qui reste ensuite ouvert, ce qui devient vite gênant quand on ajoute plusieurs articles
+   à la suite. Show Web View affiche la page dans une fenêtre d'aperçu qui se referme d'elle-même.
 
 ```javascript
 var d = document, h = location.href;
@@ -138,7 +142,8 @@ completion("ADRESSE_DE_LAPP#add=" + encodeURIComponent(JSON.stringify(o)));
 ```
 
 **À l'usage :** sur la page du produit dans Safari, bouton Partager, puis
-**Ajouter à la déco**. fav-deco s'ouvre pré-rempli.
+**Ajouter à la déco**. fav-deco s'ouvre pré-rempli dans une fenêtre d'aperçu qui se referme
+d'elle-même une fois l'ajout fait, sans laisser d'onglet ouvert.
 
 > La première fois, iOS demande l'autorisation d'exécuter du JavaScript sur la page.
 > C'est normal, il faut accepter, sinon le raccourci ne peut pas lire la page.
