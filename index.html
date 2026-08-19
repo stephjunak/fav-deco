@@ -1347,7 +1347,7 @@ function codeSignet(){
     + "if(o.image_url){try{o.image_url=new URL(o.image_url,h).href}catch(e){}}"
     + "o.titre=(o.titre||'').replace(/\\s+/g,' ').trim().slice(0,180);"
     + "var u='" + app + "#add='+encodeURIComponent(JSON.stringify(o));"
-    + "var w=window.open(u,'_blank');if(!w)location.href=u;"
+    + "var w=window.open(u,'fav-deco-app');if(!w)location.href=u;"
     + "})()";
 }
 
