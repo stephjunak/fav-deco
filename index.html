@@ -109,7 +109,7 @@ a{color:inherit}
 
 /* ---------- Filtres ---------- */
 .barre{
-  display:flex;gap:8px;align-items:center;
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
   padding:0 16px 10px;max-width:1400px;margin:0 auto;
 }
 .barre:last-child{padding-bottom:12px}
@@ -141,6 +141,10 @@ a{color:inherit}
 .btn--actif{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
 .btn--actif:hover{background:#332F2A;color:var(--on-primary)}
 
+.filtre-label{
+  flex:0 0 auto;font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-subtle);white-space:nowrap;
+}
 .filtres{
   display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
   flex:1;min-width:0;
@@ -287,6 +291,11 @@ a{color:inherit}
 }
 .tuile-sep{opacity:.4;flex:0 0 auto}
 .tuile-boutique{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tuile-pieces{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tuile-piece{
+  font-size:10.5px;padding:2px 7px;border-radius:var(--r-pill);
+  border:1px solid var(--border-strong);color:var(--text-muted);
+}
 .tuile-qui{
   margin-left:auto;flex:0 0 auto;width:17px;height:17px;border-radius:50%;
   display:grid;place-items:center;font-size:9.5px;font-weight:600;
@@ -515,18 +524,21 @@ a{color:inherit}
   </div>
   <div class="barre">
     <div class="seg" id="seg-vue">
-      <button data-vue="cat" aria-pressed="true">Catégories</button>
       <button data-vue="tout" aria-pressed="false">Tout</button>
+      <button data-vue="piece" aria-pressed="false">Par pièce</button>
+      <button data-vue="cat" aria-pressed="true">Par catégorie</button>
     </div>
     <div class="cols" id="seg-col">
       <button data-col="1" aria-label="Une colonne" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="13" height="13" rx="2"/></svg></button>
       <button data-col="2" aria-label="Deux colonnes" aria-pressed="true"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="5.6" height="13" rx="1.6"/><rect x="8.4" y="1" width="5.6" height="13" rx="1.6"/></svg></button>
       <button data-col="3" aria-label="Trois colonnes" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="3.4" height="13" rx="1.1"/><rect x="5.8" y="1" width="3.4" height="13" rx="1.1"/><rect x="10.6" y="1" width="3.4" height="13" rx="1.1"/></svg></button>
     </div>
-    <button class="btn btn--fantome btn--petit" id="btn-reorganiser">Gérer les catégories</button>
+    <button class="btn btn--fantome btn--petit" id="btn-reorganiser-pieces">Gérer les pièces</button>
+    <button class="btn btn--fantome btn--petit" id="btn-reorganiser-cats">Gérer les catégories</button>
     <button class="btn btn--fantome btn--petit" id="btn-gerer">Réorganiser les articles</button>
   </div>
-  <div class="barre"><div class="filtres" id="filtres"></div></div>
+  <div class="barre"><span class="filtre-label">Pièce</span><div class="filtres" id="filtres"></div></div>
+  <div class="barre"><span class="filtre-label">Catégorie</span><div class="filtres" id="filtres-cat"></div></div>
 </header>
 
 <main id="contenu"></main>
@@ -550,6 +562,7 @@ var CLE_LOCALE = "favdeco:items";
 var CLE_QUI    = "favdeco:qui";
 var CLE_VUE    = "favdeco:vue";
 var CLE_ORDRE  = "favdeco:ordre";
+var CLE_ORDRE_PIECES = "favdeco:ordre_pieces";
 var CLE_COL    = "favdeco:col";
 
 var partage = !!(FB_PROJECT && FB_API_KEY);
@@ -559,28 +572,32 @@ var FS_BASE = "https://firestore.googleapis.com/v1/projects/" + FB_PROJECT
 /* Firestore REST encode chaque valeur avec son type
    ({stringValue:...}, {integerValue:...}, ...). Ces deux fonctions font
    l'aller-retour avec de simples objets JS, pour que le reste de l'app
-   n'ait jamais à connaître ce format. */
+   n'ait jamais à connaître ce format. valeurFirestore()/valeurJS() sont
+   récursives pour supporter les arrayValue (champ `pieces`, multi-pièces
+   par article), en plus des types scalaires déjà en place. */
+function valeurFirestore(v){
+  if (v === null || v === undefined) return { nullValue: null };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(valeurFirestore) } };
+  if (typeof v === "boolean") return { booleanValue: v };
+  if (typeof v === "number") return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  return { stringValue: String(v) };
+}
+function valeurJS(v){
+  if ("stringValue" in v) return v.stringValue;
+  if ("integerValue" in v) return parseInt(v.integerValue, 10);
+  if ("doubleValue" in v) return v.doubleValue;
+  if ("booleanValue" in v) return v.booleanValue;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(valeurJS);
+  return null;
+}
 function versChampsFirestore(obj){
   var champs = {};
-  Object.keys(obj).forEach(function(k){
-    var v = obj[k];
-    if (v === null || v === undefined) champs[k] = { nullValue: null };
-    else if (typeof v === "boolean") champs[k] = { booleanValue: v };
-    else if (typeof v === "number") champs[k] = Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-    else champs[k] = { stringValue: String(v) };
-  });
+  Object.keys(obj).forEach(function(k){ champs[k] = valeurFirestore(obj[k]); });
   return champs;
 }
 function depuisChampsFirestore(champs){
   var obj = {};
-  Object.keys(champs || {}).forEach(function(k){
-    var v = champs[k];
-    if ("stringValue" in v) obj[k] = v.stringValue;
-    else if ("integerValue" in v) obj[k] = parseInt(v.integerValue, 10);
-    else if ("doubleValue" in v) obj[k] = v.doubleValue;
-    else if ("booleanValue" in v) obj[k] = v.booleanValue;
-    else obj[k] = null;
-  });
+  Object.keys(champs || {}).forEach(function(k){ obj[k] = valeurJS(champs[k]); });
   return obj;
 }
 function idDepuisNomFirestore(nom){ return nom.split("/").pop(); }
@@ -589,8 +606,10 @@ function idDepuisNomFirestore(nom){ return nom.split("/").pop(); }
    2. ÉTAT
    ================================================================= */
 var articles = [];
-var filtre = null;          // null = tout
-var vue = localStorage.getItem("favdeco:vue") === "tout" ? "tout" : "cat";
+var filtre = null;          // null = tout (pièce)
+var filtreCat = null;       // null = tout (type de meuble), combiné en ET avec filtre
+var vue = ["tout","piece","cat"].indexOf(localStorage.getItem(CLE_VUE)) > -1
+        ? localStorage.getItem(CLE_VUE) : "cat";
 var colonnes = ["1","2","3"].indexOf(localStorage.getItem("favdeco:col")) > -1
              ? localStorage.getItem("favdeco:col") : "2";
 var gestion = false;
@@ -598,13 +617,19 @@ var popOuvert = null;
 var CATS_BASE = ["Canapé","Table","Chaise","Luminaire","Rangement","Lit","Déco","Tapis"];
 
 var $ = function(s){ return document.querySelector(s); };
-var contenu = $("#contenu"), zoneFiltres = $("#filtres"), zoneCompte = $("#compte");
+var contenu = $("#contenu"), zoneFiltres = $("#filtres"), zoneFiltresCat = $("#filtres-cat"), zoneCompte = $("#compte");
 
 function echapper(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
   });
 }
+
+/* `pieces` (les pièces de la maison, plusieurs par article) est un array,
+   à la différence de `categorie` (le type de meuble, une seule valeur).
+   Une fiche jamais réécrite depuis l'ajout du champ n'a pas cette clé en
+   mémoire : ce garde-fou évite d'avoir à vérifier Array.isArray partout. */
+function piecesDe(a){ return Array.isArray(a.pieces) ? a.pieces : []; }
 
 /* Affichage des photos via wsrv.nl plutôt qu'en hotlink direct vers le
    site du vendeur : leur serveur n'est visité qu'une fois, wsrv.nl garde
@@ -696,7 +721,7 @@ function charger(){
   if (!partage) {
     articles = lireLocal().filter(function(a){ return !a.supprime; });
     rendre();
-    return Promise.resolve();
+    return migrerPieces();
   }
   // Pas de "WHERE" ni de "ORDER BY" simple dans l'API REST Firestore :
   // on charge la collection (une liste perso reste petite) et on filtre/
@@ -723,6 +748,7 @@ function charger(){
       }
       articles = docs;
       rendre();
+      return migrerPieces();
     })
     .catch(function(e){
       console.error(e);
@@ -809,6 +835,88 @@ function majCategorie(ancien, nouveau){
   }).catch(function(e){ toast("Non enregistré : " + e.message, true); charger(); });
 }
 
+/* Renomme ou supprime une pièce dans le tableau `pieces` de chaque article
+   concerné. Contrairement à majCategorie() (qui écrase une valeur scalaire
+   identique pour tous), ici chaque article garde ses AUTRES pièces intactes :
+   on mute le tableau de chacun individuellement. nouveau = null retire
+   juste cette entrée (l'article reste rattaché à ses éventuelles autres
+   pièces, ou tombe en « Sans pièce » si le tableau devient vide) — à la
+   différence de majCategorie(nom, null) qui vide tout le champ. */
+function majPiece(ancien, nouveau){
+  var concernes = articles.filter(function(a){ return piecesDe(a).indexOf(ancien) > -1; });
+  concernes.forEach(function(a){
+    if (nouveau){
+      a.pieces = a.pieces.map(function(p){ return p === ancien ? nouveau : p; });
+      a.pieces = a.pieces.filter(function(p, i){ return a.pieces.indexOf(p) === i; }); // dédoublonne si fusion
+    } else {
+      a.pieces = a.pieces.filter(function(p){ return p !== ancien; });
+    }
+  });
+  var o = ordrePieces(), i = o.indexOf(ancien);
+  if (i > -1){ if (nouveau) o[i] = nouveau; else o.splice(i, 1); poserOrdrePieces(o); }
+  if (filtre === ancien) filtre = nouveau;
+  rendre();
+
+  if (!partage){
+    var tout = lireLocal();
+    concernes.forEach(function(a){
+      var j = tout.findIndex(function(x){ return String(x.id) === String(a.id); });
+      if (j > -1) tout[j].pieces = a.pieces;
+    });
+    ecrireLocal(tout);
+    return Promise.resolve();
+  }
+  return Promise.all(concernes.map(function(a){
+    return fetch(urlDocFirestore(a.id, ["pieces"]), {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: versChampsFirestore({ pieces: a.pieces }) })
+    });
+  })).then(function(reponses){
+    var echec = reponses.find(function(r){ return !r.ok; });
+    if (echec) throw new Error("HTTP " + echec.status);
+  }).catch(function(e){ toast("Non enregistré : " + e.message, true); charger(); });
+}
+
+/* Migration ponctuelle : `categorie` servait jusqu'ici à noter la pièce
+   (Chambre/Salon/Bureau). On bascule cette valeur vers `pieces` (array) et
+   on vide `categorie` pour qu'il retrouve son usage prévu (le type de
+   meuble). Un article est « à migrer » si categorie est renseigné ET qu'il
+   n'a pas encore de pieces : une fois migré, categorie passe à null, donc
+   il ne sera plus jamais candidat — idempotent sans drapeau dédié. Les deux
+   champs partent dans le MÊME PATCH par article (même updateMask), jamais
+   de fiche à moitié migrée. En cas d'échec réseau partiel : un seul toast
+   agrégé, pas de rappel de charger() en boucle ; les fiches en échec
+   restent candidates au prochain rechargement naturel de la page. */
+function migrerPieces(){
+  var candidats = articles.filter(function(a){
+    return a.categorie != null && a.categorie !== "" && !Array.isArray(a.pieces);
+  });
+  if (!candidats.length) return Promise.resolve();
+
+  candidats.forEach(function(a){ a.pieces = [a.categorie]; a.categorie = null; });
+  rendre();
+
+  if (!partage){
+    var tout = lireLocal();
+    candidats.forEach(function(a){
+      var j = tout.findIndex(function(x){ return String(x.id) === String(a.id); });
+      if (j > -1){ tout[j].pieces = a.pieces; tout[j].categorie = null; }
+    });
+    ecrireLocal(tout);
+    return Promise.resolve();
+  }
+
+  return Promise.all(candidats.map(function(a){
+    return fetch(urlDocFirestore(a.id, ["pieces","categorie"]), {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: versChampsFirestore({ pieces: a.pieces, categorie: null }) })
+    }).then(function(r){ return { id:a.id, ok:r.ok }; });
+  })).then(function(resultats){
+    var echecs = resultats.filter(function(r){ return !r.ok; });
+    if (echecs.length) toast(echecs.length + " fiche(s) pas encore migrée(s), on réessaiera plus tard", true);
+  }).catch(function(e){ console.error("Migration pieces:", e); });
+}
+
 /* Ordre des articles À L'INTÉRIEUR d'une catégorie : champ `rang`, partagé
    (Firestore), à la différence de l'ordre des catégories qui reste local à
    chaque appareil. Sans rang (valeur par défaut), l'ordre reste celui de
@@ -872,6 +980,15 @@ function ordre(){
 }
 function poserOrdre(liste){ localStorage.setItem(CLE_ORDRE, JSON.stringify(liste)); }
 
+/* Ordre d'affichage des pièces : même principe que ordre()/poserOrdre(),
+   mais sur une clé localStorage SÉPARÉE. La réutiliser aurait cassé l'ordre
+   des types dès le premier glisser-déposer d'une pièce, poserOrdre()
+   remplaçant tout le contenu de la clé. */
+function ordrePieces(){
+  try { return JSON.parse(localStorage.getItem(CLE_ORDRE_PIECES) || "[]"); } catch(e){ return []; }
+}
+function poserOrdrePieces(liste){ localStorage.setItem(CLE_ORDRE_PIECES, JSON.stringify(liste)); }
+
 /* Les catégories rangées à la main passent devant, dans l'ordre choisi.
    Les nouvelles arrivent ensuite, par ordre alphabétique. */
 function categories(){
@@ -887,15 +1004,56 @@ function categories(){
   }).map(function(c){ return { nom:c, n:vues[c] }; });
 }
 
+/* Même principe que categories(), mais sur le champ `pieces` (array) :
+   chaque article compte dans toutes ses pièces, pas une seule. */
+function pieces(){
+  var vues = {};
+  articles.forEach(function(a){ piecesDe(a).forEach(function(p){ vues[p] = (vues[p] || 0) + 1; }); });
+  var o = ordrePieces();
+  return Object.keys(vues).sort(function(x, y){
+    var ix = o.indexOf(x), iy = o.indexOf(y);
+    if (ix > -1 && iy > -1) return ix - iy;
+    if (ix > -1) return -1;
+    if (iy > -1) return 1;
+    return x.localeCompare(y, "fr");
+  }).map(function(p){ return { nom:p, n:vues[p] }; });
+}
+
+/* Deux lignes de filtres, indépendantes et combinées en ET : pièces
+   (chambre/salon/bureau...) et types de meuble (tapis/canapé/cadre...).
+   Un article peut avoir plusieurs pièces, donc la ligne pièces reste
+   single-select comme avant (un clic = une pièce à la fois) ; la ligne
+   type l'est aussi, un article n'ayant qu'un seul type. Chaque ligne se
+   cache d'elle-même si son axe est encore vide (.barre:has(.filtres:empty)
+   dans le CSS). */
 function rendreFiltres(){
-  var cats = categories();
-  var h = '<button class="puce" data-cat="" aria-pressed="' + (filtre === null) + '">Toutes'
+  var pcs = pieces();
+  var sansPieceN = articles.filter(function(a){ return piecesDe(a).length === 0; }).length;
+  var h = '<button class="puce" data-piece="" aria-pressed="' + (filtre === null) + '">Toutes'
         + (articles.length ? ' <span class="n">' + articles.length + '</span>' : '') + '</button>';
-  cats.forEach(function(c){
-    h += '<button class="puce" data-cat="' + echapper(c.nom) + '" aria-pressed="'
-      + (filtre === c.nom) + '">' + echapper(c.nom) + ' <span class="n">' + c.n + '</span></button>';
+  if (sansPieceN){
+    h += '<button class="puce" data-piece="' + echapper(SANS_PIECE) + '" aria-pressed="'
+      + (filtre === false) + '">' + SANS_PIECE + ' <span class="n">' + sansPieceN + '</span></button>';
+  }
+  pcs.forEach(function(p){
+    h += '<button class="puce" data-piece="' + echapper(p.nom) + '" aria-pressed="'
+      + (filtre === p.nom) + '">' + echapper(p.nom) + ' <span class="n">' + p.n + '</span></button>';
   });
-  zoneFiltres.innerHTML = cats.length ? h : "";
+  zoneFiltres.innerHTML = (pcs.length || sansPieceN) ? h : "";
+
+  var cats = categories();
+  var sansCatN = articles.filter(function(a){ return !a.categorie; }).length;
+  var hc = '<button class="puce" data-cat="" aria-pressed="' + (filtreCat === null) + '">Tous types'
+        + (articles.length ? ' <span class="n">' + articles.length + '</span>' : '') + '</button>';
+  if (sansCatN){
+    hc += '<button class="puce" data-cat="' + echapper(SANS_CAT) + '" aria-pressed="'
+      + (filtreCat === false) + '">' + SANS_CAT + ' <span class="n">' + sansCatN + '</span></button>';
+  }
+  cats.forEach(function(c){
+    hc += '<button class="puce" data-cat="' + echapper(c.nom) + '" aria-pressed="'
+      + (filtreCat === c.nom) + '">' + echapper(c.nom) + ' <span class="n">' + c.n + '</span></button>';
+  });
+  zoneFiltresCat.innerHTML = (cats.length || sansCatN) ? hc : "";
 }
 
 function tuileHTML(a, ctx){
@@ -911,6 +1069,11 @@ function tuileHTML(a, ctx){
 
   var init = a.ajoute_par ? '<span class="tuile-qui" title="Ajouté par ' + echapper(a.ajoute_par) + '">'
     + echapper(a.ajoute_par.trim().charAt(0).toUpperCase()) + '</span>' : "";
+
+  var pcs = piecesDe(a);
+  var badgesPieces = pcs.length
+    ? '<div class="tuile-pieces">' + pcs.map(function(p){ return '<span class="tuile-piece">' + echapper(p) + '</span>'; }).join("") + '</div>'
+    : "";
 
   var reorg = "";
   if (gestion && ctx.dansListe){
@@ -929,11 +1092,12 @@ function tuileHTML(a, ctx){
     +   '<p class="tuile-titre">' + echapper(a.titre || a.url) + '</p>'
     +   '<div class="tuile-meta">' + prix
     +     '<span class="tuile-boutique">' + echapper(a.boutique || "") + '</span>' + init
-    +   '</div>' + reorg
+    +   '</div>' + badgesPieces + reorg
     + '</div></article>';
 }
 
 var SANS_CAT = "Sans catégorie";
+var SANS_PIECE = "Sans pièce";
 
 function rendre(){
   rendreFiltres();
@@ -949,15 +1113,26 @@ function rendre(){
     return;
   }
 
-  contenu.setAttribute("data-vue", vue);
+  // L'attribut CSS data-vue traite "piece" comme "cat" : mise en page en
+  // sections/colonnes identique, seule la clé de groupement diffère (gérée
+  // plus bas en JS). Évite de dupliquer toutes les règles CSS de grille.
+  contenu.setAttribute("data-vue", vue === "piece" ? "cat" : vue);
   contenu.setAttribute("data-col", colonnes);
   majCommandes();
 
-  var liste = filtre === null ? articles : articles.filter(function(a){ return a.categorie === filtre; });
+  // filtre/filtreCat valent : null (tout), false (« sans »), ou un nom précis.
+  var liste = articles.filter(function(a){
+    var okPiece = filtre === null ? true : filtre === false ? piecesDe(a).length === 0 : piecesDe(a).indexOf(filtre) > -1;
+    var okCat = filtreCat === null ? true : filtreCat === false ? !a.categorie : a.categorie === filtreCat;
+    return okPiece && okCat;
+  });
 
   if (!liste.length){
-    contenu.innerHTML = '<div class="vide"><h2>Rien dans « ' + echapper(filtre) + ' »</h2>'
-      + '<p>Cette catégorie est vide pour le moment.</p></div>';
+    var libPiece = filtre === false ? SANS_PIECE : filtre;
+    var libCat = filtreCat === false ? SANS_CAT : filtreCat;
+    var nomFiltre = [libPiece, libCat].filter(Boolean).join(" · ");
+    contenu.innerHTML = '<div class="vide"><h2>Rien dans « ' + echapper(nomFiltre) + ' »</h2>'
+      + '<p>Rien ne correspond à ce filtre pour le moment.</p></div>';
     return;
   }
 
@@ -968,7 +1143,43 @@ function rendre(){
     return;
   }
 
-  // Vue « Catégories » : une section par catégorie
+  // Vue « Par pièce » : une section par pièce. Un article à plusieurs
+  // pièces apparaît dans chacune de ses sections (intentionnel, cf. tag
+  // multi-pièces) — SAUF si un filtre pièce précis est actif : `liste` est
+  // déjà restreinte à cette seule pièce, donc l'article ne doit se ranger
+  // que dans SA section, pas fan-out sur ses autres pièces (bug vécu :
+  // un miroir à 3 pièces apparaissait dans les 3 sections même en
+  // filtrant sur une seule). Pas de flèches de réorganisation ici : le
+  // champ `rang` est scopé au type (categorie), pas à la pièce, donc pas
+  // de tri significatif à proposer dans cette vue (ordre = le plus
+  // récent d'abord, comme la vue « Tout »).
+  if (vue === "piece"){
+    var groupesP = {};
+    liste.forEach(function(a){
+      var pcs = piecesDe(a);
+      if (!pcs.length) { (groupesP[SANS_PIECE] = groupesP[SANS_PIECE] || []).push(a); }
+      else pcs.forEach(function(p){
+        if (filtre !== null && filtre !== false && p !== filtre) return;
+        (groupesP[p] = groupesP[p] || []).push(a);
+      });
+    });
+    var rangP = pieces().map(function(p){ return p.nom; });
+    var nomsP = Object.keys(groupesP).sort(function(x, y){
+      if (x === SANS_PIECE) return 1;
+      if (y === SANS_PIECE) return -1;
+      return rangP.indexOf(x) - rangP.indexOf(y);
+    });
+    contenu.innerHTML = nomsP.map(function(n){
+      var titre = '<h2 class="section-titre">' + echapper(n)
+        + '<span class="section-n">' + groupesP[n].length + '</span></h2>';
+      return '<section class="section">' + titre
+        + '<div class="grille">' + groupesP[n].map(function(a){ return tuileHTML(a); }).join("") + '</div>'
+        + '</section>';
+    }).join("");
+    return;
+  }
+
+  // Vue « Par catégorie » : une section par type de meuble
   var groupes = {};
   liste.forEach(function(a){
     var c = a.categorie || SANS_CAT;
@@ -1031,9 +1242,22 @@ document.addEventListener("click", function(e){
   if (s) { e.preventDefault(); supprimerArticle(s.dataset.suppr); return; }
   if (!e.target.closest(".pop")) fermerPop();
 
-  var p = e.target.closest("[data-cat]");
-  if (p && p.classList.contains("puce")) {
-    filtre = p.dataset.cat || null;
+  // Scopés à leur zone précise : "data-piece" existe aussi sur les
+  // pastilles du panneau d'ajout/édition (#f-pieces), qui ont leur propre
+  // écouteur — sans ce scope, un clic là-bas changerait aussi ce filtre.
+  // filtre/filtreCat : null (pastille "Toutes"/"Tous types"), false (pastille
+  // "Sans pièce"/"Sans catégorie"), ou le nom précis cliqué.
+  var p = e.target.closest("#filtres [data-piece]");
+  if (p) {
+    var vp = p.dataset.piece;
+    filtre = vp === "" ? null : vp === SANS_PIECE ? false : vp;
+    rendre();
+    window.scrollTo({ top:0, behavior:"smooth" });
+  }
+  var pc = e.target.closest("#filtres-cat [data-cat]");
+  if (pc) {
+    var vc = pc.dataset.cat;
+    filtreCat = vc === "" ? null : vc === SANS_CAT ? false : vc;
     rendre();
     window.scrollTo({ top:0, behavior:"smooth" });
   }
@@ -1152,17 +1376,26 @@ function ouvrirAjout(data, idEdite){
   var complet = !idEdite && !!(d.url && d.titre);
   var cats = categories().map(function(c){ return c.nom; });
   CATS_BASE.forEach(function(c){ if (cats.indexOf(c) < 0) cats.push(c); });
+  var pcs = pieces().map(function(p){ return p.nom; });
+  var initPieces = Array.isArray(d.pieces) ? d.pieces.slice() : [];
 
   var v = ouvrirVoile(
       '<div class="feuille-tete"><h2>' + (idEdite ? "Modifier" : (complet ? "Ranger dans" : "Ajouter")) + '</h2>'
     + '<button class="btn btn--fantome" data-fermer>×</button></div>'
     + '<div id="zone-apercu"></div>'
+    + '<p class="aide" style="margin:0 0 4px">Pièce(s)</p>'
+    + '<div class="cats cats--grand" id="f-pieces">'
+    +   pcs.map(function(p){ return '<button type="button" class="puce" data-piece="' + echapper(p) + '" aria-pressed="' + (initPieces.indexOf(p) > -1) + '">' + echapper(p) + '</button>'; }).join("")
+    +   '<button type="button" class="puce puce--autre" id="f-piece-autre">+ Autre</button>'
+    + '</div>'
+    + '<div class="champ" id="champ-piece" hidden><input id="f-piece" type="text" placeholder="ou tape une autre pièce"></div>'
+    + '<p class="aide" style="margin:10px 0 4px">Type de meuble</p>'
     + '<div class="cats cats--grand" id="f-cats">'
     +   cats.map(function(c){ return '<button type="button" class="puce" data-choix="' + echapper(c) + '">' + echapper(c) + '</button>'; }).join("")
     +   '<button type="button" class="puce puce--autre" id="f-autre">+ Autre</button>'
     + '</div>'
     + '<div class="champ" id="champ-cat"' + (complet ? ' hidden' : '') + '>'
-    +   '<input id="f-cat" type="text" placeholder="ou tape une autre catégorie" value="' + echapper(d.categorie || "") + '"></div>'
+    +   '<input id="f-cat" type="text" placeholder="ou tape un autre type" value="' + echapper(d.categorie || "") + '"></div>'
     + '<div id="details"' + (complet ? ' hidden' : '') + '>'
     +   '<div class="champ"><label for="f-url">Lien du produit</label>'
     +     '<input id="f-url" type="url" inputmode="url" placeholder="Colle le lien ici" value="' + echapper(d.url) + '"></div>'
@@ -1181,6 +1414,7 @@ function ouvrirAjout(data, idEdite){
   );
 
   var etat = { image_url: d.image_url || "", boutique: d.boutique || "" };
+  var etatPieces = initPieces.slice();
   function reduit(){ return complet && v.querySelector("#details").hasAttribute("hidden"); }
 
   function majApercu(){
@@ -1221,7 +1455,8 @@ function ouvrirAjout(data, idEdite){
       image_url: (v.querySelector("#f-image").value.trim() || etat.image_url) || null,
       prix: prixBrut === "" ? null : parseFloat(prixBrut),
       boutique: etat.boutique || null,
-      categorie: cat || null
+      categorie: cat || null,
+      pieces: etatPieces.slice()
     };
     var action;
     if (idEdite){
@@ -1238,6 +1473,34 @@ function ouvrirAjout(data, idEdite){
       toast("Échec : " + e.message, true);
     });
   }
+
+  // Les pastilles pièces se cochent (plusieurs à la fois), mais ne
+  // déclenchent jamais d'enregistrement : seul le type le fait (ci-
+  // dessous), pour garder le geste rapide « un tap = rangé » du signet.
+  v.querySelector("#f-pieces").addEventListener("click", function(e){
+    if (e.target.closest("#f-piece-autre")){
+      v.querySelector("#champ-piece").removeAttribute("hidden");
+      v.querySelector("#f-piece").focus();
+      return;
+    }
+    var b = e.target.closest("[data-piece]"); if (!b) return;
+    var nom = b.dataset.piece, actif = b.getAttribute("aria-pressed") === "true";
+    b.setAttribute("aria-pressed", String(!actif));
+    var i = etatPieces.indexOf(nom);
+    if (actif && i > -1) etatPieces.splice(i, 1);
+    else if (!actif && i < 0) etatPieces.push(nom);
+  });
+  v.querySelector("#f-piece").addEventListener("keydown", function(e){
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    var nom = this.value.trim(); if (!nom) return;
+    if (etatPieces.indexOf(nom) < 0) etatPieces.push(nom);
+    this.value = "";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "puce"; btn.dataset.piece = nom;
+    btn.textContent = nom; btn.setAttribute("aria-pressed", "true");
+    v.querySelector("#f-pieces").insertBefore(btn, v.querySelector("#f-piece-autre"));
+  });
 
   // Une pastille = un rangement immédiat quand tout est déjà rempli
   v.querySelector("#f-cats").addEventListener("click", function(e){
@@ -1462,34 +1725,49 @@ function ligneReorgHTML(c){
     + '</li>';
 }
 
-function ouvrirReorganisationCategories(){
-  var v = ouvrirVoile(
-      '<div class="feuille-tete"><h2>Gérer les catégories</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
-    + '<p class="aide" style="margin-bottom:10px">Glisse la poignée pour changer l\'ordre, touche le nom pour le modifier.</p>'
-    + '<ul class="reorg-liste" id="reorg-liste">' + categories().map(ligneReorgHTML).join("") + '</ul>'
-    + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
-  );
-  var liste = v.querySelector("#reorg-liste");
-
-  function actualiser(){ liste.innerHTML = categories().map(ligneReorgHTML).join(""); }
-
+/* Branche renommage/suppression/glisser-déposer sur une des deux listes
+   (pièces ou types). Générique sur {nom,n} : obtenirListe() est pieces()
+   ou categories(), renommerOuSupprimer() est majPiece() ou majCategorie(). */
+function brancherReorg(liste, obtenirListe, renommerOuSupprimer, poserOrdreFn, messageSuppr){
+  function actualiser(){ liste.innerHTML = obtenirListe().map(ligneReorgHTML).join(""); }
   liste.addEventListener("change", function(e){
     var inp = e.target.closest(".cat-nom-input");
     if (!inp) return;
     var li = inp.closest("li"), ancien = li.dataset.cat, nouveau = inp.value.trim();
     if (!nouveau || nouveau === ancien) { inp.value = ancien; return; }
-    majCategorie(ancien, nouveau).then(actualiser);
+    renommerOuSupprimer(ancien, nouveau).then(actualiser);
   });
-
   liste.addEventListener("click", function(e){
     var b = e.target.closest("[data-cat-suppr]");
     if (!b) return;
     var li = b.closest("li"), nom = li.dataset.cat;
-    if (!confirm('Supprimer la catégorie « ' + nom + ' » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».')) return;
-    majCategorie(nom, null).then(function(){ toast("Catégorie supprimée"); actualiser(); });
+    if (!confirm(messageSuppr.replace("%s", nom))) return;
+    renommerOuSupprimer(nom, null).then(function(){ toast("Supprimé"); actualiser(); });
   });
+  activerGlisserListe(liste, poserOrdreFn);
+}
 
-  activerGlisserCategories(liste);
+function ouvrirReorganisationPieces(){
+  var v = ouvrirVoile(
+      '<div class="feuille-tete"><h2>Gérer les pièces</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
+    + '<p class="aide" style="margin-bottom:10px">Glisse la poignée pour changer l\'ordre, touche le nom pour le modifier.</p>'
+    + '<ul class="reorg-liste" id="reorg-pieces">' + pieces().map(ligneReorgHTML).join("") + '</ul>'
+    + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
+  );
+  brancherReorg(v.querySelector("#reorg-pieces"), pieces, majPiece, poserOrdrePieces,
+    'Supprimer la pièce « %s » ?\n\nAucun meuble ne sera supprimé, elle sera juste retirée de leurs pièces.');
+  v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
+}
+
+function ouvrirReorganisationCategories(){
+  var v = ouvrirVoile(
+      '<div class="feuille-tete"><h2>Gérer les catégories</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
+    + '<p class="aide" style="margin-bottom:10px">Glisse la poignée pour changer l\'ordre, touche le nom pour le modifier.</p>'
+    + '<ul class="reorg-liste" id="reorg-cats">' + categories().map(ligneReorgHTML).join("") + '</ul>'
+    + '<div class="actions-feuille"><button class="btn btn--primaire" data-fermer>Fermer</button></div>'
+  );
+  brancherReorg(v.querySelector("#reorg-cats"), categories, majCategorie, poserOrdre,
+    'Supprimer la catégorie « %s » ?\n\nAucun meuble ne sera supprimé, ils repasseront dans « Sans catégorie ».');
   v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
 }
 
@@ -1499,7 +1777,7 @@ function ouvrirReorganisationCategories(){
    ligne complète (H) quand on les dépasse. Ordre commité au relâcher.
    Écouteurs posés une seule fois sur la liste (délégation) : ils restent
    valables même après un innerHTML de renommage/suppression. */
-function activerGlisserCategories(liste){
+function activerGlisserListe(liste, poserOrdreFn){
   if (!liste) return;
   var dragging = null, depart = 0, indexDepart = 0, indexAct = 0, H = 0, ordreVisuel = [];
 
@@ -1542,7 +1820,7 @@ function activerGlisserCategories(liste){
     ordreVisuel.forEach(function(li){ liste.appendChild(li); });
     dragging.classList.remove("reorg-drag");
     dragging = null;
-    poserOrdre(ordreVisuel.map(function(li){ return li.dataset.cat; }));
+    poserOrdreFn(ordreVisuel.map(function(li){ return li.dataset.cat; }));
     rendre();
   }
   liste.addEventListener("pointerup", relacher);
@@ -1553,11 +1831,15 @@ function activerGlisserCategories(liste){
    9. DÉMARRAGE
    ================================================================= */
 function majCommandes(){
-  var estCat = vue === "cat";
-  $("#seg-col").hidden = !estCat;
-  $("#btn-gerer").hidden = !estCat;
-  $("#btn-reorganiser").hidden = !estCat;
-  $("#btn-reorganiser").disabled = categories().length < 1;
+  var groupe = vue === "cat" || vue === "piece";   // sections affichées, colonnes pertinentes
+  $("#seg-col").hidden = !groupe;
+  // Réorganiser (flèches ↑↓) n'a de sens qu'en vue « Par catégorie » : le
+  // champ `rang` est scopé au type, pas à la pièce (cf. index.html §3/§4).
+  $("#btn-gerer").hidden = vue !== "cat";
+  $("#btn-reorganiser-pieces").hidden = !groupe;
+  $("#btn-reorganiser-pieces").disabled = pieces().length < 1;
+  $("#btn-reorganiser-cats").hidden = !groupe;
+  $("#btn-reorganiser-cats").disabled = categories().length < 1;
   Array.prototype.forEach.call($("#seg-col").querySelectorAll("button"), function(x){
     x.setAttribute("aria-pressed", x.dataset.col === colonnes);
   });
@@ -1577,7 +1859,8 @@ $("#btn-gerer").addEventListener("click", function(){
   rendre();
 });
 
-$("#btn-reorganiser").addEventListener("click", ouvrirReorganisationCategories);
+$("#btn-reorganiser-pieces").addEventListener("click", ouvrirReorganisationPieces);
+$("#btn-reorganiser-cats").addEventListener("click", ouvrirReorganisationCategories);
 
 $("#contenu").addEventListener("click", function(e){
   var art = e.target.closest("[data-art-monter],[data-art-descendre]");
