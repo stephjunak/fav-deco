@@ -163,6 +163,10 @@ a{color:inherit}
   background:var(--primary);color:var(--on-primary);border-color:var(--primary);font-weight:500;
 }
 .puce .n{opacity:.55;margin-left:5px;font-variant-numeric:tabular-nums}
+.select-mag{
+  border:1px solid var(--border-strong);background:var(--surface);color:var(--text);
+  border-radius:var(--r-pill);padding:6px 13px;font-size:13.5px;max-width:240px;
+}
 
 /* ---------- Grille en colonnes (hauteurs libres) ---------- */
 #contenu{max-width:1400px;margin:0 auto;padding:10px 16px 80px}
@@ -527,6 +531,7 @@ a{color:inherit}
       <button data-vue="tout" aria-pressed="false">Tout</button>
       <button data-vue="piece" aria-pressed="false">Par pièce</button>
       <button data-vue="cat" aria-pressed="true">Par catégorie</button>
+      <button data-vue="mag" aria-pressed="false">Par magasin</button>
     </div>
     <div class="cols" id="seg-col">
       <button data-col="1" aria-label="Une colonne" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="13" height="13" rx="2"/></svg></button>
@@ -539,6 +544,7 @@ a{color:inherit}
   </div>
   <div class="barre"><span class="filtre-label">Pièce</span><div class="filtres" id="filtres"></div></div>
   <div class="barre"><span class="filtre-label">Catégorie</span><div class="filtres" id="filtres-cat"></div></div>
+  <div class="barre"><span class="filtre-label">Magasin</span><div class="filtres" id="filtres-mag"></div></div>
 </header>
 
 <main id="contenu"></main>
@@ -608,7 +614,8 @@ function idDepuisNomFirestore(nom){ return nom.split("/").pop(); }
 var articles = [];
 var filtre = null;          // null = tout (pièce)
 var filtreCat = null;       // null = tout (type de meuble), combiné en ET avec filtre
-var vue = ["tout","piece","cat"].indexOf(localStorage.getItem(CLE_VUE)) > -1
+var filtreMag = null;       // null = tout (boutique), combiné en ET avec filtre/filtreCat
+var vue = ["tout","piece","cat","mag"].indexOf(localStorage.getItem(CLE_VUE)) > -1
         ? localStorage.getItem(CLE_VUE) : "cat";
 var colonnes = ["1","2","3"].indexOf(localStorage.getItem("favdeco:col")) > -1
              ? localStorage.getItem("favdeco:col") : "2";
@@ -617,7 +624,7 @@ var popOuvert = null;
 var CATS_BASE = ["Canapé","Table","Chaise","Luminaire","Rangement","Lit","Déco","Tapis"];
 
 var $ = function(s){ return document.querySelector(s); };
-var contenu = $("#contenu"), zoneFiltres = $("#filtres"), zoneFiltresCat = $("#filtres-cat"), zoneCompte = $("#compte");
+var contenu = $("#contenu"), zoneFiltres = $("#filtres"), zoneFiltresCat = $("#filtres-cat"), zoneFiltresMag = $("#filtres-mag"), zoneCompte = $("#compte");
 
 function echapper(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -1019,13 +1026,23 @@ function pieces(){
   }).map(function(p){ return { nom:p, n:vues[p] }; });
 }
 
-/* Deux lignes de filtres, indépendantes et combinées en ET : pièces
-   (chambre/salon/bureau...) et types de meuble (tapis/canapé/cadre...).
-   Un article peut avoir plusieurs pièces, donc la ligne pièces reste
-   single-select comme avant (un clic = une pièce à la fois) ; la ligne
-   type l'est aussi, un article n'ayant qu'un seul type. Chaque ligne se
-   cache d'elle-même si son axe est encore vide (.barre:has(.filtres:empty)
-   dans le CSS). */
+/* Pas de rangement manuel pour les boutiques (contrairement à
+   categories()/pieces()) : le nom vient directement du domaine à
+   l'extraction, tri simplement alphabétique. */
+function boutiques(){
+  var vues = {};
+  articles.forEach(function(a){ if (a.boutique) vues[a.boutique] = (vues[a.boutique] || 0) + 1; });
+  return Object.keys(vues).sort(function(x, y){ return x.localeCompare(y, "fr"); })
+    .map(function(b){ return { nom:b, n:vues[b] }; });
+}
+
+/* Trois lignes de filtres, indépendantes et combinées en ET : pièces
+   (chambre/salon/bureau...), types de meuble (tapis/canapé/cadre...) et
+   boutique. Un article peut avoir plusieurs pièces, donc la ligne pièces
+   reste single-select comme avant (un clic = une pièce à la fois) ; les
+   lignes type et boutique le sont aussi, un article n'ayant qu'un seul
+   type et une seule boutique. Chaque ligne se cache d'elle-même si son axe
+   est encore vide (.barre:has(.filtres:empty) dans le CSS). */
 function rendreFiltres(){
   var pcs = pieces();
   var sansPieceN = articles.filter(function(a){ return piecesDe(a).length === 0; }).length;
@@ -1054,6 +1071,24 @@ function rendreFiltres(){
       + (filtreCat === c.nom) + '">' + echapper(c.nom) + ' <span class="n">' + c.n + '</span></button>';
   });
   zoneFiltresCat.innerHTML = (cats.length || sansCatN) ? hc : "";
+
+  // Trop de boutiques différentes pour des pastilles (une ligne devient
+  // vite illisible) : menu déroulant natif plutôt qu'une rangée de puces.
+  var mags = boutiques();
+  var sansMagN = articles.filter(function(a){ return !a.boutique; }).length;
+  var hm = '<select class="select-mag" aria-label="Filtrer par magasin">'
+        + '<option value=""' + (filtreMag === null ? ' selected' : '') + '>Toutes'
+        + (articles.length ? ' (' + articles.length + ')' : '') + '</option>';
+  if (sansMagN){
+    hm += '<option value="' + echapper(SANS_BOUTIQUE) + '"' + (filtreMag === false ? ' selected' : '') + '>'
+      + SANS_BOUTIQUE + ' (' + sansMagN + ')</option>';
+  }
+  mags.forEach(function(b){
+    hm += '<option value="' + echapper(b.nom) + '"' + (filtreMag === b.nom ? ' selected' : '') + '>'
+      + echapper(b.nom) + ' (' + b.n + ')</option>';
+  });
+  hm += '</select>';
+  zoneFiltresMag.innerHTML = (mags.length || sansMagN) ? hm : "";
 }
 
 function tuileHTML(a, ctx){
@@ -1098,6 +1133,7 @@ function tuileHTML(a, ctx){
 
 var SANS_CAT = "Sans catégorie";
 var SANS_PIECE = "Sans pièce";
+var SANS_BOUTIQUE = "Sans boutique";
 
 function rendre(){
   rendreFiltres();
@@ -1113,24 +1149,26 @@ function rendre(){
     return;
   }
 
-  // L'attribut CSS data-vue traite "piece" comme "cat" : mise en page en
-  // sections/colonnes identique, seule la clé de groupement diffère (gérée
-  // plus bas en JS). Évite de dupliquer toutes les règles CSS de grille.
-  contenu.setAttribute("data-vue", vue === "piece" ? "cat" : vue);
+  // L'attribut CSS data-vue traite "piece" et "mag" comme "cat" : mise en
+  // page en sections/colonnes identique, seule la clé de groupement diffère
+  // (gérée plus bas en JS). Évite de dupliquer toutes les règles CSS de grille.
+  contenu.setAttribute("data-vue", (vue === "piece" || vue === "mag") ? "cat" : vue);
   contenu.setAttribute("data-col", colonnes);
   majCommandes();
 
-  // filtre/filtreCat valent : null (tout), false (« sans »), ou un nom précis.
+  // filtre/filtreCat/filtreMag valent : null (tout), false (« sans »), ou un nom précis.
   var liste = articles.filter(function(a){
     var okPiece = filtre === null ? true : filtre === false ? piecesDe(a).length === 0 : piecesDe(a).indexOf(filtre) > -1;
     var okCat = filtreCat === null ? true : filtreCat === false ? !a.categorie : a.categorie === filtreCat;
-    return okPiece && okCat;
+    var okMag = filtreMag === null ? true : filtreMag === false ? !a.boutique : a.boutique === filtreMag;
+    return okPiece && okCat && okMag;
   });
 
   if (!liste.length){
     var libPiece = filtre === false ? SANS_PIECE : filtre;
     var libCat = filtreCat === false ? SANS_CAT : filtreCat;
-    var nomFiltre = [libPiece, libCat].filter(Boolean).join(" · ");
+    var libMag = filtreMag === false ? SANS_BOUTIQUE : filtreMag;
+    var nomFiltre = [libPiece, libCat, libMag].filter(Boolean).join(" · ");
     contenu.innerHTML = '<div class="vide"><h2>Rien dans « ' + echapper(nomFiltre) + ' »</h2>'
       + '<p>Rien ne correspond à ce filtre pour le moment.</p></div>';
     return;
@@ -1174,6 +1212,32 @@ function rendre(){
         + '<span class="section-n">' + groupesP[n].length + '</span></h2>';
       return '<section class="section">' + titre
         + '<div class="grille">' + groupesP[n].map(function(a){ return tuileHTML(a); }).join("") + '</div>'
+        + '</section>';
+    }).join("");
+    return;
+  }
+
+  // Vue « Par magasin » : une section par boutique (champ `boutique`,
+  // rempli automatiquement à l'extraction). Pas de liste à gérer à la
+  // main comme pour pièces/catégories : les sections sont déduites des
+  // fiches existantes, triées alphabétiquement (Sans boutique en dernier).
+  // Pas de réorganisation ici, `rang` reste scopé à la catégorie.
+  if (vue === "mag"){
+    var groupesM = {};
+    liste.forEach(function(a){
+      var b = a.boutique || SANS_BOUTIQUE;
+      (groupesM[b] = groupesM[b] || []).push(a);
+    });
+    var nomsM = Object.keys(groupesM).sort(function(x, y){
+      if (x === SANS_BOUTIQUE) return 1;
+      if (y === SANS_BOUTIQUE) return -1;
+      return x.localeCompare(y, "fr");
+    });
+    contenu.innerHTML = nomsM.map(function(n){
+      var titre = '<h2 class="section-titre">' + echapper(n)
+        + '<span class="section-n">' + groupesM[n].length + '</span></h2>';
+      return '<section class="section">' + titre
+        + '<div class="grille">' + groupesM[n].map(function(a){ return tuileHTML(a); }).join("") + '</div>'
         + '</section>';
     }).join("");
     return;
@@ -1262,6 +1326,16 @@ document.addEventListener("click", function(e){
     window.scrollTo({ top:0, behavior:"smooth" });
   }
   if (e.target.closest('[data-action="ajouter"]')) ouvrirAjout(null);
+});
+
+// Filtre magasin : menu déroulant natif (voir rendreFiltres), pas de clic
+// à intercepter ici, un "change" suffit.
+document.addEventListener("change", function(e){
+  var s = e.target.closest("#filtres-mag select"); if (!s) return;
+  var v = s.value;
+  filtreMag = v === "" ? null : v === SANS_BOUTIQUE ? false : v;
+  rendre();
+  window.scrollTo({ top:0, behavior:"smooth" });
 });
 document.addEventListener("keydown", function(e){ if (e.key === "Escape") { fermerPop(); if (!feuillePersistante) fermerFeuille(); } });
 
@@ -1831,7 +1905,7 @@ function activerGlisserListe(liste, poserOrdreFn){
    9. DÉMARRAGE
    ================================================================= */
 function majCommandes(){
-  var groupe = vue === "cat" || vue === "piece";   // sections affichées, colonnes pertinentes
+  var groupe = vue === "cat" || vue === "piece" || vue === "mag";   // sections affichées, colonnes pertinentes
   $("#seg-col").hidden = !groupe;
   // Réorganiser (flèches ↑↓) n'a de sens qu'en vue « Par catégorie » : le
   // champ `rang` est scopé au type, pas à la pièce (cf. index.html §3/§4).

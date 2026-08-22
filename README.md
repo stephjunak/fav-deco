@@ -122,8 +122,8 @@ par ses deux apps Vinted (vérifié qu'une nouvelle organisation ne contourne pa
 limite : elle est globale au compte). Bascule vers Firebase/Firestore, qui n'a pas cette
 limite sur son plan gratuit.
 
-Trois différences absorbées par la couche de stockage (`charger`/`ajouter`/`modifier`/
-`majCategorie`), invisibles pour le reste de l'app :
+Quatre différences absorbées par la couche de stockage (`charger`/`ajouter`/`modifier`/
+`majCategorie`/`majPiece`), invisibles pour le reste de l'app :
 - Firestore type chaque valeur (`{stringValue}`, `{integerValue}`...) :
   `versChampsFirestore()` / `depuisChampsFirestore()` font l'aller-retour avec de
   simples objets JS.
@@ -134,31 +134,66 @@ Trois différences absorbées par la couche de stockage (`charger`/`ajouter`/`mo
   toucher que les champs donnés (piège vérifié par test unitaire avant mise en prod,
   jamais parti en production) : chaque modification liste explicitement ses champs via
   `urlDocFirestore()`.
+- **Les valeurs multiples (champ `pieces`) passent par un `arrayValue`** (21/08/2026) :
+  `valeurFirestore()`/`valeurJS()` encodent/décodent récursivement un array de la même
+  façon qu'un scalaire, réutilisées par `versChampsFirestore()`/`depuisChampsFirestore()`.
 
 ## Fonctionnalités
 
-- **Vue Catégories** (sections empilées, une par catégorie) ou **vue Tout** (grille
-  unique), mémorisée d'une visite à l'autre.
-- **1, 2 ou 3 colonnes de catégories**, avec des vignettes qui gardent la même taille
-  partout dans un même mode (le nombre de colonnes de *produits* par catégorie est fixé
-  explicitement pour ça, jamais déduit d'une largeur).
-- **Gérer les catégories** (bouton dans l'en-tête) : fenêtre dédiée listant les
-  catégories, une par ligne. Glisser-déposer par la poignée pour changer l'ordre
-  (Pointer Events, même code souris et tactile), nom éditable directement dans la ligne,
-  suppression avec confirmation. Supprimer une catégorie ne supprime aucun meuble, ils
-  repassent dans « Sans catégorie ». Cet ordre est **local à chaque appareil**, pas
-  partagé. Remplace l'ancien réglage inline sur les titres de section (pas assez
-  intuitif : le retour de Stéphanie est que ce n'était pas clair que le nom cliqué se
-  renommait).
-- **Réorganiser les articles** (bouton dans l'en-tête, ex-« Gérer ») : ordre des articles
-  à l'intérieur d'une catégorie, via des flèches ↑↓ et un champ `rang` par article. Celui-
-  ci est **partagé** (Firestore), contrairement à l'ordre des catégories. Hors périmètre
-  du passage au glisser-déposer (demande explicite : seules les catégories devaient
-  changer).
+### Deux axes de classification, indépendants (21/08/2026)
+
+- **Pièces** (`pieces`, array Firestore) : les pièces de la maison (chambre, salon,
+  entrée...). Un article peut appartenir à **plusieurs pièces à la fois** (ex. un
+  tableau pas encore affecté entre salon et chambre). Axe branché sur la vue « Par
+  pièce » et sa ligne de filtre.
+- **Catégorie** (`categorie`, string unique, mécanique inchangée depuis la v1) : le
+  type de meuble (canapé, tapis, cadre...). Un seul par article. Axe branché sur la vue
+  « Par catégorie » et sa propre ligne de filtre.
+- Les deux axes sont totalement indépendants : renommer/supprimer une pièce n'affecte
+  jamais les catégories et inversement. Chacun a sa propre modale de gestion, son
+  propre ordre local (localStorage), son propre filtre avec option « Sans pièce » /
+  « Sans catégorie » (n'apparaît que s'il existe des articles concernés).
+- **Migration automatique** (`migrerPieces()`, accrochée dans `charger()`) : au premier
+  chargement après cette mise à jour, la valeur qui était dans `categorie` (utilisée
+  jusque-là pour noter la pièce) a basculé vers `pieces`, et `categorie` est reparti à
+  vide. Idempotente, un seul `PATCH` par fiche concernée, jamais de fiche à moitié
+  migrée.
+
+### Vues et filtres
+
+- **Quatre vues** : **Tout** (grille plate, sans section), **Par pièce** (une section
+  par pièce ; un article multi-pièces apparaît dans chacune de ses sections, sauf si un
+  filtre pièce précis est actif — alors il ne montre que sa section filtrée, pour
+  éviter le doublon visuel), **Par catégorie** (une section par type de meuble, seule
+  vue où l'ordre des articles est disponible), **Par magasin** (une section par
+  boutique, champ `boutique` rempli automatiquement à l'extraction, tri alphabétique,
+  pas de liste à gérer à la main contrairement aux pièces/catégories — 22/08/2026).
+  Mémorisé d'une visite à l'autre.
+- **Trois filtres indépendants et combinables** en haut, avec libellé (« Pièce » /
+  « Catégorie » / « Magasin ») : sélectionner une pièce, un type et une boutique en
+  même temps affine la liste (ET logique). Le filtre Magasin est un **menu déroulant**
+  plutôt que des pastilles (22/08/2026) : trop de boutiques différentes pour tenir sur
+  une ligne lisible.
+- **1, 2 ou 3 colonnes de sections** (pièces ou catégories selon la vue), avec des
+  vignettes qui gardent la même taille partout dans un même mode (le nombre de colonnes
+  de *produits* par section est fixé explicitement pour ça, jamais déduit d'une
+  largeur).
+- **Gérer les pièces** et **Gérer les catégories** (deux boutons séparés dans
+  l'en-tête) : chacun ouvre sa propre fenêtre à une seule liste. Glisser-déposer par la
+  poignée pour changer l'ordre (Pointer Events, même code souris et tactile), nom
+  éditable directement dans la ligne, suppression avec confirmation. Supprimer une
+  pièce la retire juste du tableau `pieces` de l'article (ses autres pièces restent
+  intactes) ; supprimer une catégorie fait retomber les articles dans « Sans
+  catégorie ». Ces deux ordres sont **locaux à chaque appareil**, pas partagés, et
+  indépendants l'un de l'autre.
+- **Réorganiser les articles** (bouton dans l'en-tête, visible seulement en vue « Par
+  catégorie ») : ordre des articles à l'intérieur d'une catégorie, via des flèches ↑↓
+  et un champ `rang` par article, **partagé** (Firestore). Pas d'équivalent en vue
+  « Par pièce » : `rang` reste scopé au type, pas à la pièce.
 - **Croix de suppression** sur chaque vignette, avec 5 secondes pour Annuler (toast avec
   bouton d'action).
-- **Menu « ··· »** réduit à « Modifier la fiche » (nom, photo, prix, lien, catégorie
-  tous éditables après coup).
+- **Menu « ··· »** réduit à « Modifier la fiche » (nom, photo, prix, lien, **pièces**
+  — plusieurs, à cocher — et **catégorie** — une seule — tous éditables après coup).
 - Prénom demandé une fois au premier lancement, associé automatiquement à chaque ajout.
 
 ## Installation
@@ -228,6 +263,17 @@ AirDrop). Testé de bout en bout : ajout, modification, suppression, annulation,
 catégories (ordre, renommage, suppression), réorganisation des articles. Plus de souci
 de photo manquante signalé (Sklum, decoclico, IKEA via le repli i0.wp.com).
 
+**Mise à jour du 21/08/2026 :** ajout du système à deux axes pièces (multi-valeurs) /
+catégorie (type de meuble, single-valeur), avec migration automatique des fiches
+existantes. Testé abondamment en local avant mise en ligne (migration idempotente,
+filtres combinés, renommage/suppression sur des articles multi-pièces, aller-retour
+Firestore array y compris vide). Poussé en production (commit `cc58a08`).
+
+**Mise à jour du 22/08/2026 :** ajout de la vue « Par magasin » et du filtre Magasin
+(menu déroulant). Testé en direct sur les 71 vraies fiches partagées, aucune erreur.
+Diagnostic (sans correctif, voir « Bugs connus ») sur le retour du bug d'accumulation
+d'onglets côté Mac : cause identifiée (cmd-clic), décision assumée de ne pas y toucher.
+
 Rien de bloquant à ce stade. Si besoin de continuer :
 - Corriger au cas par cas si une photo redevient manquante (voir « Sites qui ont posé
   problème »).
@@ -282,8 +328,35 @@ Rien de bloquant à ce stade. Si besoin de continuer :
   **« Autoriser les raccourcis non fiables »** (Réglages → Raccourcis → Avancé) n'est pas
   activé : ce réglage n'apparaît lui-même qu'après avoir déjà utilisé au moins un
   raccourci de la galerie Apple, piège pour qui n'a jamais ouvert l'app.
+- **Un attribut `data-*` réutilisé pour deux widgets différents propage les clics de
+  l'un vers l'autre.** Le filtre pièce en haut et les pastilles multi-select du panneau
+  « Modifier la fiche » partageaient tous deux `data-piece` : un clic dans le panneau
+  remontait (bubbling) jusqu'au handler global du filtre et changeait la vue en
+  arrière-plan sans que ça se voie tout de suite. Corrigé le 21/08/2026 en scopant les
+  deux handlers à leur zone précise (`#filtres [data-piece]` / `#f-pieces [data-piece]`)
+  plutôt qu'un sélecteur `[data-piece]` global.
+- **Grouper par un champ multi-valeurs sans tenir compte du filtre actif fait
+  apparaître un même article dans plusieurs sections en même temps.** En vue « Par
+  pièce », un article à 3 pièces (ex. un miroir Entrée/Séjour/Chambre) se retrouvait
+  dans les 3 sections même en filtrant sur une seule pièce : le groupement itérait sur
+  *toutes* les pièces de l'article au lieu de s'arrêter à celle du filtre actif. Corrigé
+  le 21/08/2026 : quand un filtre pièce précis est actif, l'article ne se range que
+  dans sa section.
+- **Le correctif d'accumulation d'onglets (19/08) ne marche pas avec un cmd-clic.**
+  Revécu le 22/08/2026 : Stéphanie ouvre plusieurs fiches produit d'un coup par
+  cmd-clic depuis une page de résultats. Chaque onglet ainsi ouvert est indépendant
+  (pas de relation « opener » avec les autres, ni avec un éventuel onglet fav-deco déjà
+  ouvert), donc `window.open(u,'fav-deco-app')` ne retrouve jamais l'onglet existant et
+  en recrée un nouveau à chaque clic sur le signet — le nom de fenêtre ne peut se
+  réutiliser qu'entre onglets apparentés. Piste corrective proposée (fermeture
+  automatique de l'onglet fav-deco juste après l'enregistrement, comme sur iPhone) :
+  **refusée**, Stéphanie reste parfois sur l'onglet après un ajout pour parcourir les
+  articles déjà enregistrés. **Décision : laissé tel quel**, pas de correctif en place.
+  À revisiter seulement si une solution n'empêche pas ce cas d'usage (ex. un bouton
+  « Fermer » optionnel plutôt qu'automatique).
 
 ## Prochaine étape
 
-Aucune identifiée. Le projet est en usage normal ; revenir ici seulement si un nouveau
-besoin ou un souci récurrent apparaît.
+Rien de particulier, le projet est en usage normal (la répartition des fiches sur les
+vrais types de meuble, seule chose qui restait en attente depuis le 21/08, est faite).
+Revenir ici seulement si un nouveau besoin ou un souci récurrent apparaît.
