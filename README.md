@@ -174,6 +174,17 @@ Quatre différences absorbées par la couche de stockage (`charger`/`ajouter`/`m
   même temps affine la liste (ET logique). Le filtre Magasin est un **menu déroulant**
   plutôt que des pastilles (22/08/2026) : trop de boutiques différentes pour tenir sur
   une ligne lisible.
+- **Tri** (« Trier par », menu déroulant, 25/08/2026) : indépendant des filtres (rien
+  n'est exclu, juste réordonné) — Plus récents d'abord (défaut), Prix croissant, Prix
+  décroissant, Magasin (A→Z). S'applique à l'intérieur de chaque section, dans les 4
+  vues. Pas mémorisé d'une visite à l'autre, comme les filtres. En vue « Par
+  catégorie », un tri actif remplace l'ordre manuel (`rang`) pour l'affichage sans le
+  modifier, et masque les flèches ↑↓ de réorganisation tant qu'il est actif.
+- **Filtres réglés automatiquement à l'ajout d'une fiche** (25/08/2026) : la pièce (si
+  une seule est cochée) et la catégorie choisies deviennent les filtres actifs de la
+  liste au retour sur l'écran principal, pour retrouver la fiche sans bruit parmi les
+  autres. Pièce laissée sur « Toutes » si 0 ou 2+ pièces cochées (le filtre pièce de la
+  page principale est single-select). Ne concerne que l'ajout, pas la modification.
 - **1, 2 ou 3 colonnes de sections** (pièces ou catégories selon la vue), avec des
   vignettes qui gardent la même taille partout dans un même mode (le nombre de colonnes
   de *produits* par section est fixé explicitement pour ça, jamais déduit d'une
@@ -273,6 +284,25 @@ Firestore array y compris vide). Poussé en production (commit `cc58a08`).
 (menu déroulant). Testé en direct sur les 71 vraies fiches partagées, aucune erreur.
 Diagnostic (sans correctif, voir « Bugs connus ») sur le retour du bug d'accumulation
 d'onglets côté Mac : cause identifiée (cmd-clic), décision assumée de ne pas y toucher.
+
+**Mise à jour du 25/08/2026 :**
+- Nouvel article ajouté à une catégorie déjà réorganisée manuellement : passe désormais
+  en tête plutôt qu'en dernier (son `rang` est calé sous le plus petit existant).
+- Nouveau tri (« Trier par ») : prix croissant, prix décroissant, magasin (A→Z), en plus
+  de l'ordre par défaut. Voir « Vues et filtres ».
+- À l'ajout d'une fiche, les filtres Pièce et Catégorie de la liste se calent
+  automatiquement sur ce qui vient d'être coché. Voir « Vues et filtres ».
+- Cartes redessinées : fond et bordure autour de la photo et du texte ensemble (avant,
+  seule la photo avait un cadre, ambigu au défilement rapide). Hauteur de carte figée
+  (le titre et les badges de pièces réservent toujours la même hauteur, même vides ou
+  courts) : tous les textes s'alignent désormais d'une carte à l'autre. Palette : fini
+  le blanc, deux tons de beige (fond de page plus soutenu `#E3E0D9`, cartes plus claires
+  `#EFEDE8`), bordure des cartes renforcée (`--border-strong`) pour rester lisible entre
+  les deux tons, plus proches qu'avant.
+- Petite coquille corrigée : le filtre Magasin disait « Toutes », devient « Tous ».
+
+Testé en direct sur les 164-165 vraies fiches partagées (lecture seule pour les
+vérifications, aucune donnée de test laissée en production), aucune erreur console.
 
 Rien de bloquant à ce stade. Si besoin de continuer :
 - Corriger au cas par cas si une photo redevient manquante (voir « Sites qui ont posé
