@@ -545,6 +545,7 @@ a{color:inherit}
   <div class="barre"><span class="filtre-label">Pièce</span><div class="filtres" id="filtres"></div></div>
   <div class="barre"><span class="filtre-label">Catégorie</span><div class="filtres" id="filtres-cat"></div></div>
   <div class="barre"><span class="filtre-label">Magasin</span><div class="filtres" id="filtres-mag"></div></div>
+  <div class="barre"><span class="filtre-label">Trier par</span><div class="filtres" id="filtres-tri"></div></div>
 </header>
 
 <main id="contenu"></main>
@@ -615,6 +616,8 @@ var articles = [];
 var filtre = null;          // null = tout (pièce)
 var filtreCat = null;       // null = tout (type de meuble), combiné en ET avec filtre
 var filtreMag = null;       // null = tout (boutique), combiné en ET avec filtre/filtreCat
+var tri = null;              // null = plus récents d'abord (ou rang manuel en vue catégorie)
+                              // "prix-asc" / "prix-desc" / "mag" sinon. Pas mémorisé (comme les filtres).
 var vue = ["tout","piece","cat","mag"].indexOf(localStorage.getItem(CLE_VUE)) > -1
         ? localStorage.getItem(CLE_VUE) : "cat";
 var colonnes = ["1","2","3"].indexOf(localStorage.getItem("favdeco:col")) > -1
@@ -624,7 +627,7 @@ var popOuvert = null;
 var CATS_BASE = ["Canapé","Table","Chaise","Luminaire","Rangement","Lit","Déco","Tapis"];
 
 var $ = function(s){ return document.querySelector(s); };
-var contenu = $("#contenu"), zoneFiltres = $("#filtres"), zoneFiltresCat = $("#filtres-cat"), zoneFiltresMag = $("#filtres-mag"), zoneCompte = $("#compte");
+var contenu = $("#contenu"), zoneFiltres = $("#filtres"), zoneFiltresCat = $("#filtres-cat"), zoneFiltresMag = $("#filtres-mag"), zoneFiltresTri = $("#filtres-tri"), zoneCompte = $("#compte");
 
 function echapper(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -1100,6 +1103,44 @@ function rendreFiltres(){
   });
   hm += '</select>';
   zoneFiltresMag.innerHTML = (mags.length || sansMagN) ? hm : "";
+
+  // Pas un filtre (rien n'est exclu) : un ordre à appliquer à l'intérieur
+  // de chaque section, dans toutes les vues. Voir appliquerTri().
+  var ht = '<select class="select-mag" aria-label="Trier par">'
+        + '<option value=""' + (tri === null ? ' selected' : '') + '>Plus récents d\'abord</option>'
+        + '<option value="prix-asc"' + (tri === "prix-asc" ? ' selected' : '') + '>Prix croissant</option>'
+        + '<option value="prix-desc"' + (tri === "prix-desc" ? ' selected' : '') + '>Prix décroissant</option>'
+        + '<option value="mag"' + (tri === "mag" ? ' selected' : '') + '>Magasin (A→Z)</option>'
+        + '</select>';
+  zoneFiltresTri.innerHTML = articles.length ? ht : "";
+}
+
+/* Tri appliqué à l'intérieur de chaque section (pas un filtre, rien n'est
+   exclu). Sans tri actif (défaut), on ne touche à rien : l'appelant garde
+   l'ordre déjà en place (le plus récent d'abord, ou le rang manuel en vue
+   « Par catégorie »). Les articles sans prix passent toujours en fin de
+   liste sur les deux tris prix plutôt que de sauter n'importe où. */
+function appliquerTri(liste){
+  if (tri === "prix-asc" || tri === "prix-desc"){
+    var sens = tri === "prix-asc" ? 1 : -1;
+    return liste.slice().sort(function(x, y){
+      var px = x.prix, py = y.prix;
+      if (px == null && py == null) return 0;
+      if (px == null) return 1;
+      if (py == null) return -1;
+      return (px - py) * sens;
+    });
+  }
+  if (tri === "mag"){
+    return liste.slice().sort(function(x, y){
+      var bx = x.boutique || "", by = y.boutique || "";
+      if (!bx && !by) return 0;
+      if (!bx) return 1;
+      if (!by) return -1;
+      return bx.localeCompare(by, "fr");
+    });
+  }
+  return liste;
 }
 
 function tuileHTML(a, ctx){
@@ -1188,7 +1229,7 @@ function rendre(){
   // Vue « Tout » : une seule grille, sans titres de section, pas de
   // réorganisation (elle n'a de sens qu'à l'intérieur d'une catégorie)
   if (vue === "tout"){
-    contenu.innerHTML = '<div class="grille">' + liste.map(function(a){ return tuileHTML(a); }).join("") + '</div>';
+    contenu.innerHTML = '<div class="grille">' + appliquerTri(liste).map(function(a){ return tuileHTML(a); }).join("") + '</div>';
     return;
   }
 
@@ -1222,7 +1263,7 @@ function rendre(){
       var titre = '<h2 class="section-titre">' + echapper(n)
         + '<span class="section-n">' + groupesP[n].length + '</span></h2>';
       return '<section class="section">' + titre
-        + '<div class="grille">' + groupesP[n].map(function(a){ return tuileHTML(a); }).join("") + '</div>'
+        + '<div class="grille">' + appliquerTri(groupesP[n]).map(function(a){ return tuileHTML(a); }).join("") + '</div>'
         + '</section>';
     }).join("");
     return;
@@ -1248,7 +1289,7 @@ function rendre(){
       var titre = '<h2 class="section-titre">' + echapper(n)
         + '<span class="section-n">' + groupesM[n].length + '</span></h2>';
       return '<section class="section">' + titre
-        + '<div class="grille">' + groupesM[n].map(function(a){ return tuileHTML(a); }).join("") + '</div>'
+        + '<div class="grille">' + appliquerTri(groupesM[n]).map(function(a){ return tuileHTML(a); }).join("") + '</div>'
         + '</section>';
     }).join("");
     return;
@@ -1273,10 +1314,14 @@ function rendre(){
     // catégories » (bouton dédié), plus sur les titres de section ici.
     var titre = '<h2 class="section-titre">' + echapper(n)
       + '<span class="section-n">' + groupes[n].length + '</span></h2>';
-    var membres = triCategorie(groupes[n]);
+    // Un tri actif (prix/magasin) prend le pas sur le rang manuel pour
+    // l'affichage, sans y toucher : les flèches ↑↓ n'auraient plus d'effet
+    // visible tant qu'un tri est actif, donc on les masque (ctx vide) au
+    // lieu de laisser croire qu'elles réorganisent quelque chose.
+    var membres = tri ? appliquerTri(groupes[n]) : triCategorie(groupes[n]);
     return '<section class="section">' + titre
       + '<div class="grille">' + membres.map(function(a, i){
-          return tuileHTML(a, { dansListe:true, premier: i === 0, dernier: i === membres.length - 1 });
+          return tuileHTML(a, tri ? {} : { dansListe:true, premier: i === 0, dernier: i === membres.length - 1 });
         }).join("") + '</div>'
       + '</section>';
   }).join("");
@@ -1339,14 +1384,23 @@ document.addEventListener("click", function(e){
   if (e.target.closest('[data-action="ajouter"]')) ouvrirAjout(null);
 });
 
-// Filtre magasin : menu déroulant natif (voir rendreFiltres), pas de clic
-// à intercepter ici, un "change" suffit.
+// Filtre magasin et tri : menus déroulants natifs (voir rendreFiltres),
+// pas de clic à intercepter ici, un "change" suffit.
 document.addEventListener("change", function(e){
-  var s = e.target.closest("#filtres-mag select"); if (!s) return;
-  var v = s.value;
-  filtreMag = v === "" ? null : v === SANS_BOUTIQUE ? false : v;
-  rendre();
-  window.scrollTo({ top:0, behavior:"smooth" });
+  var s = e.target.closest("#filtres-mag select");
+  if (s) {
+    var v = s.value;
+    filtreMag = v === "" ? null : v === SANS_BOUTIQUE ? false : v;
+    rendre();
+    window.scrollTo({ top:0, behavior:"smooth" });
+    return;
+  }
+  var t = e.target.closest("#filtres-tri select");
+  if (t) {
+    tri = t.value === "" ? null : t.value;
+    rendre();
+    window.scrollTo({ top:0, behavior:"smooth" });
+  }
 });
 document.addEventListener("keydown", function(e){ if (e.key === "Escape") { fermerPop(); if (!feuillePersistante) fermerFeuille(); } });
 
