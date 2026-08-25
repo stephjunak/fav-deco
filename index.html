@@ -244,9 +244,15 @@ a{color:inherit}
 
 #contenu[data-vue="cat"][data-col="3"] .grille{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 
+/* Carte pleine (fond + bordure) autour de la photo ET du texte ensemble,
+   pas juste la photo : au défilement rapide, rien ne distinguait avant
+   quel texte appartenait à quelle photo, les deux flottant sur le même
+   fond greige de la page. */
 .tuile{
   position:relative;min-width:0;
   animation:apparait .3s var(--ease) both;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-img);overflow:hidden;
 }
 
 /* La plaque : ratio fixe, donc la place est réservée avant que la
@@ -279,7 +285,7 @@ a{color:inherit}
 .tuile-vide span{font-size:12px;color:var(--text-subtle);letter-spacing:.06em;text-transform:uppercase}
 .tuile-vide strong{font-size:13px;font-weight:500;color:var(--text-muted)}
 
-.tuile-info{padding:8px 3px 0}
+.tuile-info{padding:8px 10px 10px}
 .tuile-titre{
   font-size:13.5px;line-height:1.35;margin:0;font-weight:450;
   text-wrap:pretty;
@@ -308,7 +314,7 @@ a{color:inherit}
 
 /* Menu de tuile */
 .tuile-menu{
-  position:absolute;top:7px;right:7px;
+  position:absolute;top:9px;right:9px;
   width:28px;height:28px;border-radius:50%;border:none;
   background:rgba(255,255,255,.92);color:var(--n-900);
   display:grid;place-items:center;font-size:15px;line-height:1;
@@ -320,7 +326,7 @@ a{color:inherit}
 
 /* Croix de suppression, posée à gauche du menu « ··· » */
 .tuile-suppr{
-  position:absolute;top:7px;right:41px;
+  position:absolute;top:9px;right:43px;
   width:28px;height:28px;border-radius:50%;border:none;
   background:rgba(255,255,255,.92);color:var(--danger);
   display:grid;place-items:center;font-size:14px;line-height:1;
