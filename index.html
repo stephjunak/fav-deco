@@ -766,6 +766,17 @@ function charger(){
 function ajouter(obj){
   obj.cree_le = new Date().toISOString();
   obj.supprime = false;
+  // Si la catégorie a déjà un ordre manuel (rang posé via "Réorganiser les
+  // articles"), un article sans rang atterrit après tous les autres quel
+  // que soit son ordre d'ajout : on lui donne un rang inférieur au plus
+  // petit existant pour qu'il apparaisse en tête. Sans rang existant dans
+  // la catégorie, on ne touche à rien : l'ordre d'ajout (le plus récent en
+  // premier) s'applique déjà tel quel.
+  var cat = obj.categorie || SANS_CAT;
+  var rangs = articles.filter(function(a){
+    return (a.categorie || SANS_CAT) === cat && a.rang != null;
+  }).map(function(a){ return a.rang; });
+  if (rangs.length) obj.rang = Math.min.apply(null, rangs) - 10;
   if (!partage) {
     obj.id = Date.now();
     articles.unshift(obj); ecrireLocal(articles); rendre();
