@@ -1091,7 +1091,7 @@ function rendreFiltres(){
   var mags = boutiques();
   var sansMagN = articles.filter(function(a){ return !a.boutique; }).length;
   var hm = '<select class="select-mag" aria-label="Filtrer par magasin">'
-        + '<option value=""' + (filtreMag === null ? ' selected' : '') + '>Toutes'
+        + '<option value=""' + (filtreMag === null ? ' selected' : '') + '>Tous'
         + (articles.length ? ' (' + articles.length + ')' : '') + '</option>';
   if (sansMagN){
     hm += '<option value="' + echapper(SANS_BOUTIQUE) + '"' + (filtreMag === false ? ' selected' : '') + '>'
