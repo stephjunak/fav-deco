@@ -1602,6 +1602,13 @@ function ouvrirAjout(data, idEdite){
       action = Promise.resolve(modifier(idEdite, champs));
     } else {
       champs.ajoute_par = qui() || null;
+      // Filtre la liste principale sur la pièce et la catégorie de cet
+      // ajout, pour retrouver l'article sans bruit parmi les autres
+      // fiches. Pièce laissée sur "Toutes" si 0 ou 2+ pièces cochées (le
+      // filtre pièce de la page principale est single-select). Réglé
+      // avant l'appel : ajouter() déclenche déjà le rendu ci-dessous.
+      filtre = etatPieces.length === 1 ? etatPieces[0] : null;
+      filtreCat = cat || null;
       action = ajouter(champs);
     }
     action.then(function(){
