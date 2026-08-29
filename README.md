@@ -207,6 +207,20 @@ Quatre différences absorbées par la couche de stockage (`charger`/`ajouter`/`m
   — plusieurs, à cocher — et **catégorie** — une seule — tous éditables après coup).
 - Prénom demandé une fois au premier lancement, associé automatiquement à chaque ajout.
 
+### Anti-doublon à l'ajout (29/08/2026)
+
+À l'enregistrement d'une **nouvelle** fiche (jamais en modification), l'app compare le
+lien à ceux déjà présents via `lienNorm()` : domaine en minuscules, sans `www.`, sans
+slash final, sans ancre `#`, sans paramètres de suivi (`utm_*`, `fbclid`, `gclid`...).
+Les paramètres fonctionnels (`?couleur=`, `?variant=`) sont gardés, donc deux couleurs
+d'un même meuble restent deux fiches distinctes. Si un article a le même lien
+normalisé : `confirm()` « … est déjà dans ta liste. L'ajouter quand même ? ». Annuler
+laisse la feuille ouverte sans rien écrire, OK ajoute normalement. Marche pour les trois
+entrées (signet Mac, raccourci iPhone, lien collé) et dans les deux modes (Firestore,
+local), la comparaison se faisant sur la liste `articles` en mémoire (fiches supprimées
+exclues). Non couvert : changer après coup le lien d'une fiche pour rejoindre celui
+d'une autre.
+
 ## Installation
 
 > Déjà fait pour ce projet (`FB_PROJECT`/`FB_API_KEY` renseignés dans `index.html`,
@@ -303,6 +317,11 @@ d'onglets côté Mac : cause identifiée (cmd-clic), décision assumée de ne pa
 
 Testé en direct sur les 164-165 vraies fiches partagées (lecture seule pour les
 vérifications, aucune donnée de test laissée en production), aucune erreur console.
+
+**Mise à jour du 29/08/2026 :** contrôle anti-doublon à l'ajout (voir « Anti-doublon à
+l'ajout »). Testé en lecture seule sur la vraie base partagée : `lienNorm` validé sur 7
+cas, doublon correctement détecté et signalé, lien neuf ajouté sans friction, aucune
+donnée de test laissée en production, aucune erreur console.
 
 Rien de bloquant à ce stade. Si besoin de continuer :
 - Corriger au cas par cas si une photo redevient manquante (voir « Sites qui ont posé

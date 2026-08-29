@@ -659,6 +659,32 @@ function echapper(s){
    mémoire : ce garde-fou évite d'avoir à vérifier Array.isArray partout. */
 function piecesDe(a){ return Array.isArray(a.pieces) ? a.pieces : []; }
 
+/* Normalise un lien produit pour repérer un article déjà ajouté : minuscules
+   sur le domaine, sans "www.", sans slash final, sans ancre "#", et sans les
+   paramètres de suivi (utm_*, fbclid, gclid...). Les paramètres UTILES sont
+   gardés (ex. ?variant= ou ?couleur=) : deux couleurs d'un même meuble
+   restent donc deux liens distincts, pas un doublon. Lien invalide : repli
+   sur une comparaison texte simple. */
+function lienNorm(u){
+  if (!u) return "";
+  try {
+    var x = new URL(String(u).trim());
+    var host = x.hostname.replace(/^www\./, "").toLowerCase();
+    var chemin = x.pathname.replace(/\/+$/, "") || "/";
+    var estSuivi = function(k){
+      return /^(utm_|mc_|pk_|piwik_)/i.test(k)
+        || /^(fbclid|gclid|dclid|gbraid|wbraid|msclkid|yclid|igshid|ref|ref_src|ref_url|spm|cmpid|campaign)$/i.test(k);
+    };
+    var q = [];
+    x.searchParams.forEach(function(v, k){ if (!estSuivi(k)) q.push([k.toLowerCase(), v]); });
+    q.sort(function(a, b){ return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
+    var qs = q.map(function(p){ return p[0] + "=" + p[1]; }).join("&");
+    return host + chemin + (qs ? "?" + qs : "");
+  } catch (e){
+    return String(u).trim().toLowerCase().replace(/\/+$/, "");
+  }
+}
+
 /* Affichage des photos via wsrv.nl plutôt qu'en hotlink direct vers le
    site du vendeur : leur serveur n'est visité qu'une fois, wsrv.nl garde
    ensuite sa propre copie en cache (CDN Cloudflare) et la ressert à tous
@@ -1621,6 +1647,17 @@ function ouvrirAjout(data, idEdite){
     if (idEdite){
       action = Promise.resolve(modifier(idEdite, champs));
     } else {
+      // Anti-doublon : un même lien produit déjà présent (hors fiches
+      // supprimées, absentes de `articles`). On prévient et on laisse le
+      // choix : une variante de couleur a normalement un autre lien, mais
+      // si une boutique code la couleur dans un paramètre de suivi, le
+      // "Ajouter quand même" reste possible.
+      var cible = lienNorm(url);
+      var dejaLa = cible && articles.find(function(a){ return lienNorm(a.url) === cible; });
+      if (dejaLa && !confirm("« " + (dejaLa.titre || dejaLa.url) + " » est déjà dans ta liste. L'ajouter quand même ?")){
+        if (btn) { btn.disabled = false; btn.textContent = "Enregistrer"; }
+        return;
+      }
       champs.ajoute_par = qui() || null;
       // Filtre la liste principale sur la pièce et la catégorie de cet
       // ajout, pour retrouver l'article sans bruit parmi les autres
