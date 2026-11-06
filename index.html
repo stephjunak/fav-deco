@@ -349,6 +349,25 @@ a{color:inherit}
 .tuile:hover .tuile-suppr,.tuile-suppr:focus-visible{opacity:1}
 @media(hover:none){ .tuile-suppr{opacity:.9} }
 
+/* Bouton panier, posé en haut à gauche de la photo (le coin droit est
+   déjà pris par la croix et le menu). Discret tant que l'article n'est
+   pas dans le panier ; une fois dedans, il passe en encre pleine avec la
+   quantité, et reste visible en permanence pour repérer d'un coup d'œil
+   ce qui est déjà compté. */
+.tuile-panier{
+  position:absolute;top:9px;left:9px;
+  height:28px;min-width:28px;padding:0 7px;border-radius:var(--r-pill);border:none;
+  background:rgba(255,255,255,.92);color:var(--n-900);
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  font-size:12px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;
+  box-shadow:0 1px 4px rgba(0,0,0,.16);
+  opacity:0;transition:opacity .18s,background .15s;
+}
+.tuile:hover .tuile-panier,.tuile-panier:focus-visible{opacity:1}
+@media(hover:none){ .tuile-panier{opacity:.9} }
+.tuile-panier[data-dedans]{opacity:1;background:var(--primary);color:var(--on-primary)}
+.tuile-panier svg,.btn-panier svg{display:block;flex:0 0 auto}
+
 /* Réorganiser un article au sein de sa catégorie, en mode Gérer */
 .tuile-reorg{display:flex;gap:2px;margin-top:5px}
 
@@ -484,6 +503,73 @@ a{color:inherit}
   font-size:14px;font-weight:500;cursor:grab;
 }
 
+/* ---------- Panier ---------- */
+.btn-panier{display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Sur iPhone, l'en-tête ne tient plus en largeur avec le bouton panier :
+   total arrondi à l'euro (le détail au centime reste dans la fenêtre) et
+   libellé court pour « Commencer à utiliser l'app ». */
+.court{display:none}
+@media(max-width:639px){
+  .long{display:none}
+  .court{display:inline}
+  .btn-panier{padding:8px 11px;gap:5px}
+}
+.pan-titre{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-subtle);font-weight:600;margin:16px 0 8px;
+}
+.pan-titre:first-of-type{margin-top:0}
+.pan-ligne{
+  display:flex;gap:10px;padding:8px;margin-bottom:6px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+}
+.pan-vignette{
+  width:52px;height:52px;flex:0 0 auto;border-radius:8px;background:var(--n-50);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.pan-vignette img{display:block;max-width:100%;max-height:100%;object-fit:contain}
+/* Repli « Photo indisponible » (videMedia) à l'échelle de la miniature */
+.pan-vignette .tuile-vide{padding:2px;border-radius:8px;gap:0}
+.pan-vignette .tuile-vide span{font-size:7.5px;letter-spacing:.02em}
+.pan-vignette .tuile-vide strong{display:none}
+.pan-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.pan-haut{display:flex;align-items:flex-start;gap:4px}
+.pan-nom{
+  flex:1;min-width:0;font-size:13.5px;line-height:1.3;text-decoration:none;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.pan-nom:hover{text-decoration:underline;text-underline-offset:2px}
+.pan-bas{display:flex;align-items:center;gap:8px}
+.pan-pu{font-size:12px;color:var(--text-subtle);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pan-manque{
+  border:none;background:none;padding:0;font-size:12px;color:var(--danger);
+  text-decoration:underline;text-underline-offset:2px;white-space:nowrap;
+}
+.pan-qte{display:flex;align-items:center;gap:1px;flex:0 0 auto}
+.pan-qte input{
+  width:34px;text-align:center;font:inherit;font-size:16px;padding:2px 0; /* 16px = pas de zoom auto iOS */
+  border:1px solid var(--border-strong);border-radius:6px;background:var(--bg);color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+.pan-st{margin-left:auto;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pan-dep{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.pan-input{
+  flex:1;min-width:0;font:inherit;font-size:16px;padding:7px 10px;
+  border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text);
+}
+.pan-input:focus{outline:2px solid var(--n-900);outline-offset:-1px;border-color:transparent}
+.pan-input--montant{flex:0 0 92px;text-align:right;font-variant-numeric:tabular-nums}
+.pan-eur{font-size:13px;color:var(--text-subtle);flex:0 0 auto}
+.pan-dep--nouvelle .btn{flex:0 0 auto}
+.pan-total{margin-top:16px;padding-top:12px;border-top:1px solid var(--border-strong)}
+.pan-sous{display:flex;justify-content:space-between;font-size:13px;color:var(--text-muted);font-variant-numeric:tabular-nums;margin-bottom:3px}
+.pan-grand{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}
+.pan-grand span{font-size:14px;font-weight:600}
+.pan-grand b{font-size:21px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.pan-alerte{font-size:12px;color:var(--danger);margin:6px 0 0}
+.pan-vide{margin:0 0 4px}
+.pan-vide svg{display:inline-block;vertical-align:-2px}
+
 /* ---------- Bandeau d'état ---------- */
 .toast{
   position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));
@@ -540,7 +626,8 @@ a{color:inherit}
   <div class="tete-haut">
     <h1 class="marque">fav-deco <span class="compte" id="compte"></span></h1>
     <div class="tete-actions">
-      <button class="btn btn--fantome" id="btn-reglages" title="Installer le signet et démarrer">Commencer à utiliser l'app</button>
+      <button class="btn btn--fantome" id="btn-reglages" title="Installer le signet et démarrer"><span class="long">Commencer à utiliser l'app</span><span class="court">Aide</span></button>
+      <button class="btn btn-panier" id="btn-panier" title="Voir le panier"><span class="btn-panier-ico"></span><span class="btn-panier-txt long">Panier</span><span class="btn-panier-court court">Panier</span></button>
       <button class="btn btn--primaire" id="btn-ajouter">Ajouter</button>
     </div>
   </div>
@@ -631,6 +718,13 @@ function idDepuisNomFirestore(nom){ return nom.split("/").pop(); }
    2. ÉTAT
    ================================================================= */
 var articles = [];
+/* Lignes libres du panier (main d'œuvre, peinture...) : rangées dans la
+   même collection Firestore que les meubles (les règles de sécurité n'en
+   autorisent qu'une), avec type = "depense". Elles sont séparées des
+   meubles dès le chargement (voir charger()), donc le reste de l'app, qui
+   ne lit que `articles`, ne les voit jamais. */
+var depenses = [];
+var TYPE_DEPENSE = "depense";
 var filtre = null;          // null = tout (pièce)
 var filtreCat = null;       // null = tout (type de meuble), combiné en ET avec filtre
 var filtreMag = null;       // null = tout (boutique), combiné en ET avec filtre/filtreCat
@@ -773,7 +867,9 @@ function ecrireLocal(a){ localStorage.setItem(CLE_LOCALE, JSON.stringify(a)); }
 
 function charger(){
   if (!partage) {
-    articles = lireLocal().filter(function(a){ return !a.supprime; });
+    var toutLocal = lireLocal().filter(function(a){ return !a.supprime; });
+    articles = toutLocal.filter(function(a){ return a.type !== TYPE_DEPENSE; });
+    depenses = toutLocal.filter(function(a){ return a.type === TYPE_DEPENSE; });
     rendre();
     return migrerPieces();
   }
@@ -787,12 +883,16 @@ function charger(){
       return r.json();
     })
     .then(function(data){
-      var docs = (data.documents || []).map(function(d){
+      var tous = (data.documents || []).map(function(d){
         var o = depuisChampsFirestore(d.fields);
         o.id = idDepuisNomFirestore(d.name);
         return o;
-      }).filter(function(a){ return !a.supprime; })
+      }).filter(function(a){ return !a.supprime; });
+      var docs = tous.filter(function(a){ return a.type !== TYPE_DEPENSE; })
         .sort(function(a, b){ return String(b.cree_le || "").localeCompare(String(a.cree_le || "")); });
+      // Dépenses du panier dans l'ordre de saisie (la plus ancienne en haut).
+      var deps = tous.filter(function(a){ return a.type === TYPE_DEPENSE; })
+        .sort(function(a, b){ return String(a.cree_le || "").localeCompare(String(b.cree_le || "")); });
 
       // Garde-fou repris de vinted-search : ne jamais remplacer un
       // affichage rempli par une réponse vide (incident du 01/07/2026).
@@ -801,6 +901,7 @@ function charger(){
         return;
       }
       articles = docs;
+      depenses = deps;
       rendre();
       return migrerPieces();
     })
@@ -826,7 +927,9 @@ function ajouter(obj){
   if (rangs.length) obj.rang = Math.min.apply(null, rangs) - 10;
   if (!partage) {
     obj.id = Date.now();
-    articles.unshift(obj); ecrireLocal(articles); rendre();
+    // Réécrit à partir du stockage complet, pas de `articles` seul : sinon
+    // les dépenses du panier (hors `articles`) seraient effacées.
+    articles.unshift(obj); ecrireLocal([obj].concat(lireLocal())); rendre();
     return Promise.resolve();
   }
   return fetch(FS_BASE + "?key=" + FB_API_KEY, {
@@ -1208,6 +1311,12 @@ function tuileHTML(a, ctx){
     + pcs.map(function(p){ return '<span class="tuile-piece">' + echapper(p) + '</span>'; }).join("")
     + '</div>';
 
+  var q = qtePanier(a);
+  var btnPanier = '<button class="tuile-panier" data-panier="' + echapper(a.id) + '"' + (q ? ' data-dedans' : '')
+    + ' aria-label="' + (q ? 'Dans le panier (' + q + '), voir le panier' : 'Ajouter au panier') + '"'
+    + ' title="' + (q ? 'Dans le panier' : 'Ajouter au panier') + '">'
+    + ICONE_PANIER + (q ? '<span>×' + qteTexte(q) + '</span>' : '') + '</button>';
+
   var reorg = "";
   if (gestion && ctx.dansListe){
     reorg = '<div class="tuile-reorg">'
@@ -1219,6 +1328,7 @@ function tuileHTML(a, ctx){
   return '<article class="tuile" data-id="' + echapper(a.id) + '">'
     + '<a class="tuile-lien" href="' + echapper(a.url) + '" target="_blank" rel="noopener noreferrer">'
     +   '<div class="tuile-media">' + img + '</div></a>'
+    + btnPanier
     + '<button class="tuile-menu" data-menu="' + echapper(a.id) + '" aria-label="Options">···</button>'
     + '<button class="tuile-suppr" data-suppr="' + echapper(a.id) + '" aria-label="Retirer">✕</button>'
     + '<div class="tuile-info">'
@@ -1235,6 +1345,9 @@ var SANS_BOUTIQUE = "Sans boutique";
 
 function rendre(){
   rendreFiltres();
+  // Avant les retours anticipés ci-dessous : le bouton et la fenêtre du
+  // panier doivent suivre même quand la grille est vide ou filtrée à vide.
+  majPanier();
   zoneCompte.textContent = articles.length ? articles.length + (articles.length > 1 ? " trouvailles" : " trouvaille") : "";
 
   if (!articles.length){
@@ -1402,6 +1515,8 @@ function ouvrirPop(id, bouton){
 }
 
 document.addEventListener("click", function(e){
+  var pn = e.target.closest("[data-panier]");
+  if (pn) { e.preventDefault(); fermerPop(); cliquerPanierTuile(pn.dataset.panier); return; }
   var m = e.target.closest("[data-menu]");
   if (m) { e.preventDefault(); ouvrirPop(m.dataset.menu, m); return; }
   var s = e.target.closest("[data-suppr]");
@@ -1554,7 +1669,9 @@ function ouvrirVoile(html, persistant){
   return v;
 }
 
-function ouvrirAjout(data, idEdite){
+/* apres (facultatif) : appelé une fois la fiche enregistrée, par exemple
+   pour rouvrir le panier quand on vient d'y renseigner un prix manquant. */
+function ouvrirAjout(data, idEdite, apres){
   var d = data || { url:"", titre:"", image_url:"", prix:null, boutique:"" };
   // Venu du signet avec tout ce qu'il faut : on ne demande que la catégorie.
   // En modification, on montre tout, c'est justement le but.
@@ -1671,6 +1788,7 @@ function ouvrirAjout(data, idEdite){
     action.then(function(){
       fermerFeuille();
       toast(idEdite ? "Modifié" : (cat ? "Rangé dans " + cat : "Ajouté"));
+      if (apres) apres();
     }).catch(function(e){
       if (btn) { btn.disabled = false; btn.textContent = "Enregistrer"; }
       toast("Échec : " + e.message, true);
@@ -1764,6 +1882,308 @@ function ouvrirAjout(data, idEdite){
   v.addEventListener("click", function(e){ if (e.target.closest("[data-fermer]")) fermerFeuille(); });
 
   if (!d.url) setTimeout(function(){ champUrl.focus(); }, 120);
+}
+
+/* =================================================================
+   7 bis. PANIER
+   Un seul panier, partagé (Firestore), pour chiffrer un projet
+   (ex. la rénovation de la salle de bain). Deux sources :
+   - les meubles de la liste : champ `panier` sur la fiche = quantité
+     (absent ou 0 = pas dans le panier). Sortir du panier ne supprime
+     jamais le meuble de la liste.
+   - les autres dépenses (main d'œuvre, peinture...) : documents
+     type = "depense" { libelle, montant }, voir `depenses`.
+   Un meuble sans prix n'est jamais compté en silence : le total le
+   signale et propose de renseigner le prix.
+   ================================================================= */
+var ICONE_PANIER = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/>'
+  + '<path d="M2.5 3.5h2.8l2.4 11a1.8 1.8 0 0 0 1.8 1.4h8a1.8 1.8 0 0 0 1.8-1.4L21 7.5H6.1"/></svg>';
+
+/* Quantité décimale acceptée : le carrelage se compte au m² (4,5 m²). */
+function qtePanier(a){ var q = Number(a && a.panier); return q > 0 ? q : 0; }
+function qteTexte(q){ return String(Math.round(q * 100) / 100).replace(".", ","); }
+function aPrix(a){ return a.prix != null && a.prix !== "" && !isNaN(Number(a.prix)); }
+function trouverArticle(id){ return articles.find(function(x){ return String(x.id) === String(id); }); }
+
+/* Montant en euros : sans décimales s'il est rond, sinon toujours 2
+   (« 1 240 € », « 89,90 € »). Arrondi au centime contre les erreurs de
+   calcul en virgule flottante (0,1 + 0,2...). */
+function eur(n){
+  n = Math.round(Number(n || 0) * 100) / 100;
+  return n.toLocaleString("fr-FR", Number.isInteger(n)
+    ? { maximumFractionDigits:0 }
+    : { minimumFractionDigits:2, maximumFractionDigits:2 }) + " €";
+}
+/* Saisie d'un montant à la française : virgule ou point, espaces et « € »
+   tolérés. "" → null (rien saisi), texte illisible → NaN. */
+function lireMontant(s){
+  var t = String(s == null ? "" : s).replace(/[\s  €]/g, "").replace(",", ".");
+  if (t === "") return null;
+  var v = Number(t);
+  return isNaN(v) ? NaN : v;
+}
+function montantSaisie(n){
+  if (n == null || isNaN(Number(n))) return "";
+  n = Math.round(Number(n) * 100) / 100;
+  return (Number.isInteger(n) ? String(n) : n.toFixed(2)).replace(".", ",");
+}
+
+function etatPanier(){
+  var dans = articles.filter(function(a){ return qtePanier(a) > 0; });
+  var meubles = 0, sansPrix = 0;
+  dans.forEach(function(a){
+    if (aPrix(a)) meubles += Number(a.prix) * qtePanier(a); else sansPrix++;
+  });
+  var autres = 0;
+  depenses.forEach(function(d){ if (d.montant != null && !isNaN(Number(d.montant))) autres += Number(d.montant); });
+  return { articles: dans, meubles: meubles, autres: autres, total: meubles + autres, sansPrix: sansPrix,
+           vide: !dans.length && !depenses.length };
+}
+
+function majBoutonPanier(e){
+  var b = $("#btn-panier"); if (!b) return;
+  b.querySelector(".btn-panier-ico").innerHTML = ICONE_PANIER;
+  b.querySelector(".btn-panier-txt").textContent = e.vide ? "Panier" : eur(e.total);
+  b.querySelector(".btn-panier-court").textContent = e.vide ? "Panier" : eur(Math.round(e.total));
+  b.title = e.vide ? "Panier vide" : "Voir le panier";
+}
+
+/* Met à jour le bouton d'en-tête, et la fenêtre du panier si elle est
+   ouverte. sansListes = true ne redessine que les totaux : utilisé quand
+   on modifie une dépense depuis ses propres champs, pour ne pas faire
+   perdre le curseur en pleine saisie (un innerHTML recrée les champs). */
+function majPanier(sansListes){
+  var e = etatPanier();
+  majBoutonPanier(e);
+  var f = feuilleOuverte, zA = f && f.querySelector("#pan-articles");
+  if (!zA) return;
+  if (!sansListes){
+    zA.innerHTML = e.articles.length
+      ? e.articles.map(lignePanierHTML).join("")
+      : '<p class="aide pan-vide">Aucun meuble dans le panier pour l\'instant. Touche l\'icône ' + ICONE_PANIER
+        + ' en haut à gauche d\'une vignette pour y ajouter un meuble.</p>';
+    f.querySelector("#pan-depenses").innerHTML = depenses.map(ligneDepenseHTML).join("");
+  }
+  f.querySelector("#pan-total").innerHTML = totalPanierHTML(e);
+  f.querySelector("#pan-vider").disabled = e.vide;
+}
+
+function lignePanierHTML(a){
+  var id = echapper(a.id), q = qtePanier(a);
+  var img = a.image_url
+    ? '<img src="' + echapper(urlAffichage(a.image_url)) + '" data-original="' + echapper(a.image_url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="repliImage(this)">'
+    : '<div class="tuile-vide"><span>Sans photo</span></div>';
+  var pu = aPrix(a)
+    ? '<span class="pan-pu">' + eur(a.prix) + '</span>'
+    : '<button class="pan-manque" data-pan-prix="' + id + '">Ajouter le prix</button>';
+  return '<div class="pan-ligne">'
+    + '<div class="pan-vignette">' + img + '</div>'
+    + '<div class="pan-txt">'
+    +   '<div class="pan-haut">'
+    +     '<a class="pan-nom" href="' + echapper(a.url) + '" target="_blank" rel="noopener noreferrer" title="Ouvrir la page du vendeur">' + echapper(a.titre || a.url) + '</a>'
+    +     '<button class="cat-act cat-act--danger" data-pan-retirer="' + id + '" aria-label="Retirer du panier" title="Retirer du panier (le meuble reste dans la liste)">✕</button>'
+    +   '</div>'
+    +   '<div class="pan-bas">' + pu
+    +     '<div class="pan-qte">'
+    +       '<button class="cat-act" data-pan-moins="' + id + '" aria-label="Un de moins"' + (q <= 1 ? ' disabled' : '') + '>−</button>'
+    +       '<input type="text" inputmode="decimal" value="' + qteTexte(q) + '" data-pan-qte="' + id + '" aria-label="Quantité">'
+    +       '<button class="cat-act" data-pan-plus="' + id + '" aria-label="Un de plus">+</button>'
+    +     '</div>'
+    +     '<span class="pan-st">' + (aPrix(a) ? eur(Number(a.prix) * q) : '—') + '</span>'
+    +   '</div>'
+    + '</div></div>';
+}
+
+function ligneDepenseHTML(d){
+  var id = echapper(d.id);
+  return '<div class="pan-dep">'
+    + '<input class="pan-input" type="text" value="' + echapper(d.libelle) + '" data-dep-lib="' + id + '" aria-label="Libellé de la dépense">'
+    + '<input class="pan-input pan-input--montant" type="text" inputmode="decimal" value="' + echapper(montantSaisie(d.montant)) + '" data-dep-mt="' + id + '" aria-label="Montant en euros">'
+    + '<span class="pan-eur">€</span>'
+    + '<button class="cat-act cat-act--danger" data-dep-suppr="' + id + '" aria-label="Supprimer cette dépense">✕</button>'
+    + '</div>';
+}
+
+function totalPanierHTML(e){
+  var detail = depenses.length
+    ? '<div class="pan-sous"><span>Meubles</span><span>' + eur(e.meubles) + '</span></div>'
+    + '<div class="pan-sous"><span>Autres dépenses</span><span>' + eur(e.autres) + '</span></div>'
+    : '';
+  var alerte = e.sansPrix
+    ? '<p class="pan-alerte">' + e.sansPrix + (e.sansPrix > 1 ? ' meubles sans prix, non comptés' : ' meuble sans prix, non compté') + ' dans le total.</p>'
+    : '';
+  return '<div class="pan-total">' + detail
+    + '<div class="pan-grand"><span>Total</span><b>' + eur(e.total) + '</b></div>' + alerte + '</div>';
+}
+
+/* Clic sur l'icône d'une vignette : pas encore dans le panier → on l'y
+   met (quantité 1) ; déjà dedans → on ouvre le panier pour ajuster,
+   plutôt que de le retirer d'un clic et perdre sa quantité. */
+function cliquerPanierTuile(id){
+  var a = trouverArticle(id); if (!a) return;
+  if (qtePanier(a) > 0) { ouvrirPanier(); return; }
+  modifier(a.id, { panier: 1 });
+  toast(aPrix(a) ? "Ajouté au panier" : "Ajouté au panier, sans prix", false, { libelle: "Voir", fait: ouvrirPanier });
+}
+
+function changerQte(id, n){
+  var a = trouverArticle(id); if (!a) return;
+  n = lireMontant(n);
+  if (n !== null && !isNaN(n)) n = Math.round(n * 100) / 100;
+  // Une quantité nulle ou illisible ne retire pas l'article (il y a la
+  // croix pour ça) : on remet simplement l'ancienne valeur affichée.
+  if (n === null || isNaN(n) || n <= 0 || n === qtePanier(a)) { majPanier(); return; }
+  modifier(a.id, { panier: n });
+}
+
+function ajouterDepense(libelle, montant){
+  var obj = { type: TYPE_DEPENSE, libelle: libelle, montant: montant,
+              cree_le: new Date().toISOString(), supprime: false, ajoute_par: qui() || null };
+  if (!partage){
+    obj.id = Date.now();
+    depenses.push(obj); ecrireLocal(lireLocal().concat([obj])); majPanier();
+    return Promise.resolve();
+  }
+  return fetch(FS_BASE + "?key=" + FB_API_KEY, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: versChampsFirestore(obj) })
+  }).then(function(r){
+    if (!r.ok) return r.text().then(function(t){ throw new Error(t || ("HTTP " + r.status)); });
+    return r.json();
+  }).then(function(doc){
+    var n = depuisChampsFirestore(doc.fields);
+    n.id = idDepuisNomFirestore(doc.name);
+    depenses.push(n); majPanier();
+  });
+}
+
+/* Même principe que modifier(), mais sur `depenses`. Une suppression est
+   douce (supprime = true), comme pour les meubles : pas de règle
+   `delete` côté Firestore. */
+function modifierDepense(id, patch){
+  var d = depenses.find(function(x){ return String(x.id) === String(id); });
+  if (d) Object.assign(d, patch);
+  if (patch.supprime) depenses = depenses.filter(function(x){ return String(x.id) !== String(id); });
+  majPanier(!patch.supprime && !("supprime" in patch));
+  if (!partage){
+    var tout = lireLocal(), j = tout.findIndex(function(x){ return String(x.id) === String(id); });
+    if (j > -1) { Object.assign(tout[j], patch); ecrireLocal(tout); }
+    return Promise.resolve();
+  }
+  return fetch(urlDocFirestore(id, Object.keys(patch)), {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: versChampsFirestore(patch) })
+  }).then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); })
+    .catch(function(e){ toast("Dépense non enregistrée : " + e.message, true); charger(); });
+}
+
+function supprimerDepense(id){
+  var d = depenses.find(function(x){ return String(x.id) === String(id); });
+  if (!d) return;
+  var copie = Object.assign({}, d);
+  modifierDepense(id, { supprime: true });
+  toast("Dépense retirée", false, {
+    libelle: "Annuler",
+    fait: function(){
+      copie.supprime = false;
+      depenses.push(copie);
+      depenses.sort(function(a, b){ return String(a.cree_le || "").localeCompare(String(b.cree_le || "")); });
+      modifierDepense(id, { supprime: false });
+    }
+  });
+}
+
+function viderPanier(){
+  var e = etatPanier();
+  if (e.vide) return;
+  if (!confirm("Vider le panier ?\n\nLes meubles restent dans ta liste, ils sortent seulement du panier. Les autres dépenses sont effacées.")) return;
+  e.articles.forEach(function(a){ modifier(a.id, { panier: 0 }); });
+  depenses.slice().forEach(function(d){ modifierDepense(d.id, { supprime: true }); });
+  toast("Panier vidé");
+}
+
+function ouvrirPanier(){
+  var v = ouvrirVoile(
+      '<div class="feuille-tete"><h2>Panier</h2><button class="btn btn--fantome" data-fermer>×</button></div>'
+    + '<p class="pan-titre">Meubles</p>'
+    + '<div id="pan-articles"></div>'
+    + '<p class="pan-titre">Autres dépenses</p>'
+    + '<p class="aide" style="margin:-4px 0 8px">Ce qui n\'est pas dans la liste : main d\'œuvre, peinture, livraison…</p>'
+    + '<div id="pan-depenses"></div>'
+    + '<div class="pan-dep pan-dep--nouvelle">'
+    +   '<input class="pan-input" id="pan-lib" type="text" placeholder="Ex. Plombier, pose" aria-label="Libellé de la nouvelle dépense">'
+    +   '<input class="pan-input pan-input--montant" id="pan-mt" type="text" inputmode="decimal" placeholder="Montant" aria-label="Montant en euros">'
+    +   '<span class="pan-eur">€</span>'
+    +   '<button class="btn btn--petit" id="pan-ajout">Ajouter</button>'
+    + '</div>'
+    + '<div id="pan-total"></div>'
+    + '<div class="actions-feuille">'
+    +   '<button class="btn btn--danger" id="pan-vider">Vider le panier</button>'
+    +   '<button class="btn btn--primaire" data-fermer>Fermer</button>'
+    + '</div>'
+  );
+  majPanier();
+
+  var champLib = v.querySelector("#pan-lib"), champMt = v.querySelector("#pan-mt");
+  function nouvelleDepense(){
+    var l = champLib.value.trim(), m = lireMontant(champMt.value);
+    if (!l) { toast("Donne un nom à cette dépense", true); champLib.focus(); return; }
+    if (m === null || isNaN(m)) { toast("Indique un montant, par exemple 450 ou 89,90", true); champMt.focus(); return; }
+    var btn = v.querySelector("#pan-ajout");
+    btn.disabled = true;
+    ajouterDepense(l, m).then(function(){
+      champLib.value = ""; champMt.value = ""; champLib.focus();
+    }).catch(function(e){
+      toast("Échec : " + e.message, true);
+    }).then(function(){ btn.disabled = false; });
+  }
+  [champLib, champMt].forEach(function(c){
+    c.addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); nouvelleDepense(); } });
+  });
+
+  v.addEventListener("click", function(e){
+    var b;
+    if (e.target.closest("[data-fermer]")) { fermerFeuille(); return; }
+    if ((b = e.target.closest("[data-pan-plus]")))   { var ap = trouverArticle(b.dataset.panPlus); if (ap) changerQte(ap.id, qtePanier(ap) + 1); return; }
+    if ((b = e.target.closest("[data-pan-moins]")))  { var am = trouverArticle(b.dataset.panMoins); if (am) changerQte(am.id, qtePanier(am) - 1); return; }
+    if ((b = e.target.closest("[data-pan-retirer]"))) { modifier(b.dataset.panRetirer, { panier: 0 }); return; }
+    if ((b = e.target.closest("[data-pan-prix]"))) {
+      var a = trouverArticle(b.dataset.panPrix);
+      if (a) ouvrirAjout(a, a.id, ouvrirPanier);
+      return;
+    }
+    if ((b = e.target.closest("[data-dep-suppr]"))) { supprimerDepense(b.dataset.depSuppr); return; }
+    if (e.target.closest("#pan-ajout")) { nouvelleDepense(); return; }
+    if (e.target.closest("#pan-vider")) { viderPanier(); return; }
+  });
+
+  v.addEventListener("change", function(e){
+    var t = e.target;
+    if (t.dataset.panQte) { changerQte(t.dataset.panQte, t.value); return; }
+    var d;
+    if (t.dataset.depLib) {
+      d = depenses.find(function(x){ return String(x.id) === t.dataset.depLib; });
+      var l = t.value.trim();
+      if (!d) return;
+      if (!l) { t.value = d.libelle || ""; return; }
+      if (l !== d.libelle) modifierDepense(d.id, { libelle: l });
+      return;
+    }
+    if (t.dataset.depMt) {
+      d = depenses.find(function(x){ return String(x.id) === t.dataset.depMt; });
+      if (!d) return;
+      var m = lireMontant(t.value);
+      if (m === null || isNaN(m)) { toast("Montant illisible, il n'a pas été changé", true); t.value = montantSaisie(d.montant); return; }
+      if (m !== d.montant) modifierDepense(d.id, { montant: m });
+      t.value = montantSaisie(m);
+    }
+  });
+  v.addEventListener("keydown", function(e){
+    // Entrée dans un champ de quantité ou de dépense : valider sans attendre
+    // de quitter le champ (déclenche le "change" ci-dessus).
+    if (e.key === "Enter" && e.target.matches("[data-pan-qte],[data-dep-lib],[data-dep-mt]")) e.target.blur();
+  });
 }
 
 /* Demandé une seule fois, au tout premier lancement, sur chaque appareil. */
@@ -2088,6 +2508,7 @@ Array.prototype.forEach.call($("#seg-vue").querySelectorAll("button"), function(
 });
 
 $("#btn-ajouter").addEventListener("click", function(){ ouvrirAjout(null); });
+$("#btn-panier").addEventListener("click", ouvrirPanier);
 $("#btn-reglages").addEventListener("click", ouvrirReglages);
 
 // Ombre de l'en-tête au défilement
