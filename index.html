@@ -1158,10 +1158,12 @@ function ordrePieces(){
 function poserOrdrePieces(liste){ localStorage.setItem(CLE_ORDRE_PIECES, JSON.stringify(liste)); }
 
 /* Les catégories rangées à la main passent devant, dans l'ordre choisi.
-   Les nouvelles arrivent ensuite, par ordre alphabétique. */
-function categories(){
+   Les nouvelles arrivent ensuite, par ordre alphabétique.
+   `source` (facultatif) : compter sur une partie des articles seulement
+   (filtres croisés, voir rendreFiltres) ; par défaut, tous. */
+function categories(source){
   var vues = {};
-  articles.forEach(function(a){ if (a.categorie) vues[a.categorie] = (vues[a.categorie] || 0) + 1; });
+  (source || articles).forEach(function(a){ if (a.categorie) vues[a.categorie] = (vues[a.categorie] || 0) + 1; });
   var o = ordre();
   return Object.keys(vues).sort(function(x, y){
     var ix = o.indexOf(x), iy = o.indexOf(y);
@@ -1174,9 +1176,9 @@ function categories(){
 
 /* Même principe que categories(), mais sur le champ `pieces` (array) :
    chaque article compte dans toutes ses pièces, pas une seule. */
-function pieces(){
+function pieces(source){
   var vues = {};
-  articles.forEach(function(a){ piecesDe(a).forEach(function(p){ vues[p] = (vues[p] || 0) + 1; }); });
+  (source || articles).forEach(function(a){ piecesDe(a).forEach(function(p){ vues[p] = (vues[p] || 0) + 1; }); });
   var o = ordrePieces();
   return Object.keys(vues).sort(function(x, y){
     var ix = o.indexOf(x), iy = o.indexOf(y);
@@ -1203,12 +1205,32 @@ function boutiques(){
    reste single-select comme avant (un clic = une pièce à la fois) ; les
    lignes type et boutique le sont aussi, un article n'ayant qu'un seul
    type et une seule boutique. Chaque ligne se cache d'elle-même si son axe
-   est encore vide (.barre:has(.filtres:empty) dans le CSS). */
+   est encore vide (.barre:has(.filtres:empty) dans le CSS).
+
+   Filtres croisés pièce ⇄ catégorie (07/11/2026) : la ligne Catégorie ne
+   montre que les types présents dans la pièce choisie, et la ligne Pièce
+   que les pièces qui ont le type choisi, compteurs compris. Le magasin
+   n'entre pas dans ce jeu (choix assumé). Une combinaison vide ne peut
+   donc plus se choisir au clic ; si elle apparaît quand même (dernier
+   article supprimé ou modifié, pièce renommée), la pièce prime : le type
+   revient à « Tous types ». */
 function rendreFiltres(){
-  var pcs = pieces();
-  var sansPieceN = articles.filter(function(a){ return piecesDe(a).length === 0; }).length;
+  // 1. Une pièce qui n'existe plus du tout retombe sur « Toutes ».
+  if (filtre !== null && !articles.some(passePiece)) filtre = null;
+
+  // 2. Ligne Catégorie, calculée sur les articles de la pièce choisie.
+  var pourCats = articles.filter(passePiece);
+  var cats = categories(pourCats);
+  var sansCatN = pourCats.filter(function(a){ return !a.categorie; }).length;
+  if (filtreCat !== null && !pourCats.some(passeCat)) filtreCat = null;
+
+  // 3. Ligne Pièce, calculée sur les articles du type choisi.
+  var pourPieces = articles.filter(passeCat);
+  var pcs = pieces(pourPieces);
+  var sansPieceN = pourPieces.filter(function(a){ return piecesDe(a).length === 0; }).length;
+
   var h = '<button class="puce" data-piece="" aria-pressed="' + (filtre === null) + '">Toutes'
-        + (articles.length ? ' <span class="n">' + articles.length + '</span>' : '') + '</button>';
+        + (pourPieces.length ? ' <span class="n">' + pourPieces.length + '</span>' : '') + '</button>';
   if (sansPieceN){
     h += '<button class="puce" data-piece="' + echapper(SANS_PIECE) + '" aria-pressed="'
       + (filtre === false) + '">' + SANS_PIECE + ' <span class="n">' + sansPieceN + '</span></button>';
@@ -1219,10 +1241,8 @@ function rendreFiltres(){
   });
   zoneFiltres.innerHTML = (pcs.length || sansPieceN) ? h : "";
 
-  var cats = categories();
-  var sansCatN = articles.filter(function(a){ return !a.categorie; }).length;
   var hc = '<button class="puce" data-cat="" aria-pressed="' + (filtreCat === null) + '">Tous types'
-        + (articles.length ? ' <span class="n">' + articles.length + '</span>' : '') + '</button>';
+        + (pourCats.length ? ' <span class="n">' + pourCats.length + '</span>' : '') + '</button>';
   if (sansCatN){
     hc += '<button class="puce" data-cat="' + echapper(SANS_CAT) + '" aria-pressed="'
       + (filtreCat === false) + '">' + SANS_CAT + ' <span class="n">' + sansCatN + '</span></button>';
@@ -1343,6 +1363,15 @@ var SANS_CAT = "Sans catégorie";
 var SANS_PIECE = "Sans pièce";
 var SANS_BOUTIQUE = "Sans boutique";
 
+// Un article passe-t-il le filtre pièce / le filtre catégorie actuel ?
+// Partagé entre rendre() (la liste) et rendreFiltres() (filtres croisés).
+function passePiece(a){
+  return filtre === null ? true : filtre === false ? piecesDe(a).length === 0 : piecesDe(a).indexOf(filtre) > -1;
+}
+function passeCat(a){
+  return filtreCat === null ? true : filtreCat === false ? !a.categorie : a.categorie === filtreCat;
+}
+
 function rendre(){
   rendreFiltres();
   // Avant les retours anticipés ci-dessous : le bouton et la fenêtre du
@@ -1369,10 +1398,8 @@ function rendre(){
 
   // filtre/filtreCat/filtreMag valent : null (tout), false (« sans »), ou un nom précis.
   var liste = articles.filter(function(a){
-    var okPiece = filtre === null ? true : filtre === false ? piecesDe(a).length === 0 : piecesDe(a).indexOf(filtre) > -1;
-    var okCat = filtreCat === null ? true : filtreCat === false ? !a.categorie : a.categorie === filtreCat;
     var okMag = filtreMag === null ? true : filtreMag === false ? !a.boutique : a.boutique === filtreMag;
-    return okPiece && okCat && okMag;
+    return passePiece(a) && passeCat(a) && okMag;
   });
 
   if (!liste.length){
